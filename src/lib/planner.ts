@@ -4,18 +4,19 @@ import type { DesignDirection, DesignNode, DesignPage, DesignProject, FlowEdge }
 
 let counter = 0;
 const uid = (prefix: string) => `${prefix}_${Date.now().toString(36)}_${(counter++).toString(36)}`;
+const semantic = <T extends DesignNode>(node: T): T => ({ ...node, layout: node.layout || { mode: "absolute" }, constraints: node.constraints || { horizontal: "left", vertical: "top" } });
 
 function text(name: string, value: string, x: number, y: number, width: number, fontSize: number, color: string, weight = 500): DesignNode {
-  return { id: uid("text"), type: "text", name, text: value, x, y, width, height: Math.max(24, fontSize * 1.35), style: { color, fontSize, fontWeight: weight } };
+  return semantic({ id: uid("text"), type: "text", name, text: value, x, y, width, height: Math.max(24, fontSize * 1.35), style: { color, fontSize, fontWeight: weight } });
 }
 function card(name: string, x: number, y: number, width: number, height: number, surface: string, border: string, radius: number): DesignNode {
-  return { id: uid("card"), type: "card", name, x, y, width, height, style: { background: surface, borderColor: border, borderWidth: 1, radius, padding: 16 } };
+  return semantic({ id: uid("card"), type: "card", name, x, y, width, height, style: { background: surface, borderColor: border, borderWidth: 1, radius, padding: 16 } });
 }
 function button(name: string, label: string, x: number, y: number, width: number, accent: string, accentText: string, radius: number, targetPageId?: string): DesignNode {
-  return { id: uid("button"), type: "button", name, text: label, x, y, width, height: 38, style: { background: accent, color: accentText, radius, padding: 12, fontSize: 13, fontWeight: 650, align: "center" }, action: targetPageId ? { type: "navigate", targetPageId } : undefined };
+  return semantic({ id: uid("button"), type: "button", name, text: label, x, y, width, height: 38, style: { background: accent, color: accentText, radius, padding: 12, fontSize: 13, fontWeight: 650, align: "center" }, action: targetPageId ? { type: "navigate", targetPageId } : undefined });
 }
 function input(name: string, placeholder: string, x: number, y: number, width: number, surface: string, border: string, textColor: string, radius: number): DesignNode {
-  return { id: uid("input"), type: "input", name, text: placeholder, x, y, width, height: 40, style: { background: surface, borderColor: border, borderWidth: 1, color: textColor, radius, padding: 12, fontSize: 13 } };
+  return semantic({ id: uid("input"), type: "input", name, text: placeholder, x, y, width, height: 40, style: { background: surface, borderColor: border, borderWidth: 1, color: textColor, radius, padding: 12, fontSize: 13 } });
 }
 
 function inferScreenNames(prompt: string): string[] {
@@ -72,7 +73,22 @@ export function planProject(prompt: string, direction: DesignDirection, name = "
   if (signInButton) signInButton.action = { type: "navigate", targetPageId: overview.id };
   const flows: FlowEdge[] = signInButton ? [{ id: uid("flow"), fromPageId: pages[0].id, fromNodeId: signInButton.id, toPageId: overview.id, label: "Continue" }] : [];
   const now = new Date().toISOString();
-  const project: DesignProject = { id: uid("project"), name, prompt, createdAt: now, updatedAt: now, version: 1, direction, tokens, designMd: "", pages, flows, activePageId: pages[0].id };
+  const project: DesignProject = {
+    id: uid("project"),
+    name,
+    prompt,
+    createdAt: now,
+    updatedAt: now,
+    version: 2,
+    direction,
+    tokens,
+    designMd: "",
+    pages,
+    flows,
+    components: {},
+    variables: [],
+    activePageId: pages[0].id,
+  };
   project.designMd = serializeDesignMd(name, direction, tokens);
   return project;
 }
