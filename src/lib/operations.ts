@@ -158,6 +158,12 @@ export class OperationHistory {
     return this.current();
   }
 
+  /** Apply transient/UI-only state without creating an undo entry. */
+  sync(operation: DesignOperation) {
+    this.project = applyOperation(this.project, operation).project;
+    return this.current();
+  }
+
   undo() {
     const transaction = this.past.pop();
     if (!transaction) return this.current();
