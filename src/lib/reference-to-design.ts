@@ -1,4 +1,4 @@
-import type { DesignNode, DesignPage, DesignReference, DesignTokens } from "./types";
+import type { AutoLayoutSpec, DesignNode, DesignPage, DesignReference, DesignTokens } from "./types";
 
 let count = 0;
 const uid = (prefix: string) => `${prefix}_${Date.now().toString(36)}_${(count++).toString(36)}`;
@@ -17,6 +17,9 @@ function text(name: string, content: string, x: number, y: number, width: number
 }
 function attach(parent: DesignNode, child: DesignNode, relativeX: number, relativeY: number) {
   child.parentId = parent.id; child.x = relativeX; child.y = relativeY; parent.children = [...(parent.children || []), child.id];
+}
+function mergeLayout(node: DesignNode, changes: Partial<AutoLayoutSpec>, fallback: AutoLayoutSpec["mode"] = "vertical"): AutoLayoutSpec {
+  return { mode: node.layout?.mode ?? fallback, ...node.layout, ...changes };
 }
 
 /**
@@ -55,10 +58,10 @@ export function referenceToDraftPage(reference: DesignReference, tokens: DesignT
   const mainX = wide ? 36 + sidebarWidth + 16 : 24;
   const mainWidth = width - mainX - (wide ? 36 : 24);
   const main = frame("Primary content", mainX, contentTop, mainWidth, availableHeight, tokens, "vertical");
-  main.constraints = { horizontal: wide ? "left-right" : "left-right", vertical: "top-bottom" };
+  main.constraints = { horizontal: "left-right", vertical: "top-bottom" };
   main.style.background = tokens.colors.background;
   const hero = frame("Primary region", 0, 0, mainWidth - 32, Math.max(110, availableHeight * .34), tokens, "vertical");
-  hero.layout = { ...hero.layout, widthMode: "fill", heightMode: "fixed" };
+  hero.layout = mergeLayout(hero, { widthMode: "fill", heightMode: "fixed" });
   const heroTitle = text("Primary heading", reference.kind === "sketch" ? "Primary section" : "Match the reference hierarchy", 0, 0, mainWidth - 64, 20, tokens);
   const heroBody = text("Primary body", "Use the visual reference to guide hierarchy, density and composition. Refine content and components on the canvas.", 0, 0, mainWidth - 64, 12, tokens);
   heroBody.style.color = tokens.colors.muted;
@@ -66,11 +69,11 @@ export function referenceToDraftPage(reference: DesignReference, tokens: DesignT
   attach(main, hero, 16, 16);
 
   const row = frame("Content row", 0, 0, mainWidth - 32, 118, tokens, wide ? "horizontal" : "vertical");
-  row.layout = { ...row.layout, widthMode: "fill", heightMode: "fixed", gap: 12 };
+  row.layout = mergeLayout(row, { widthMode: "fill", heightMode: "fixed", gap: 12 }, wide ? "horizontal" : "vertical");
   row.style.background = "transparent"; row.style.borderColor = "transparent";
   for (let i = 0; i < (wide ? 3 : 2); i += 1) {
     const card = frame(`Reference card ${i + 1}`, 0, 0, wide ? 130 : mainWidth - 64, wide ? 86 : 48, tokens, "vertical");
-    card.layout = { ...card.layout, widthMode: wide ? "fill" : "fill", heightMode: "fixed", paddingTop: 10, paddingRight: 10, paddingBottom: 10, paddingLeft: 10 };
+    card.layout = mergeLayout(card, { widthMode: "fill", heightMode: "fixed", paddingTop: 10, paddingRight: 10, paddingBottom: 10, paddingLeft: 10 });
     const cardLabel = text("Card label", `Block ${i + 1}`, 0, 0, 100, 11, tokens);
     attach(card, cardLabel, 10, 10); attach(row, card, 0, 0); nodes.push(card, cardLabel);
   }
