@@ -37,6 +37,36 @@ export interface DesignTokens {
 }
 
 export type NodeType = "frame" | "text" | "button" | "card" | "metric" | "list" | "input" | "divider";
+export type LayoutMode = "absolute" | "horizontal" | "vertical";
+export type SizingMode = "fixed" | "hug" | "fill";
+export type LayoutAlign = "start" | "center" | "end" | "stretch";
+export type LayoutJustify = "start" | "center" | "end" | "space-between";
+
+export interface AutoLayoutSpec {
+  mode: LayoutMode;
+  gap?: number;
+  paddingTop?: number;
+  paddingRight?: number;
+  paddingBottom?: number;
+  paddingLeft?: number;
+  align?: LayoutAlign;
+  justify?: LayoutJustify;
+  widthMode?: SizingMode;
+  heightMode?: SizingMode;
+  wrap?: boolean;
+}
+
+export interface ResponsiveConstraints {
+  horizontal?: "left" | "right" | "left-right" | "center" | "scale";
+  vertical?: "top" | "bottom" | "top-bottom" | "center" | "scale";
+  minWidth?: number;
+  maxWidth?: number;
+  minHeight?: number;
+  maxHeight?: number;
+  hiddenBelow?: number;
+  hiddenAbove?: number;
+}
+
 export interface NodeStyle {
   background?: string;
   color?: string;
@@ -50,6 +80,14 @@ export interface NodeStyle {
   opacity?: number;
   align?: "left" | "center" | "right";
 }
+
+export interface ComponentBinding {
+  componentId: string;
+  instanceId: string;
+  sourceNodeId: string;
+  overrides?: Record<string, unknown>;
+}
+
 export interface DesignNode {
   id: string;
   type: NodeType;
@@ -60,9 +98,14 @@ export interface DesignNode {
   width: number;
   height: number;
   style: NodeStyle;
+  parentId?: string;
   children?: string[];
+  layout?: AutoLayoutSpec;
+  constraints?: ResponsiveConstraints;
+  component?: ComponentBinding;
   action?: { type: "navigate"; targetPageId: string };
 }
+
 export interface DesignPage {
   id: string;
   name: string;
@@ -74,6 +117,7 @@ export interface DesignPage {
   background: string;
   nodes: DesignNode[];
 }
+
 export interface FlowEdge {
   id: string;
   fromPageId: string;
@@ -81,20 +125,51 @@ export interface FlowEdge {
   toPageId: string;
   label: string;
 }
+
+export interface ComponentDefinition {
+  id: string;
+  name: string;
+  description?: string;
+  width: number;
+  height: number;
+  nodes: DesignNode[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type VariableType = "color" | "number" | "string" | "boolean";
+export interface DesignVariable {
+  id: string;
+  name: string;
+  type: VariableType;
+  values: Record<string, string | number | boolean>;
+  description?: string;
+}
+export interface VariableCollection {
+  id: string;
+  name: string;
+  modes: string[];
+  defaultMode: string;
+  variables: DesignVariable[];
+}
+
 export interface DesignProject {
   id: string;
   name: string;
   prompt: string;
   createdAt: string;
   updatedAt: string;
-  version: 1;
+  version: 2;
   direction: DesignDirection;
   tokens: DesignTokens;
   designMd: string;
   pages: DesignPage[];
   flows: FlowEdge[];
+  components: Record<string, ComponentDefinition>;
+  variables: VariableCollection[];
   activePageId: string;
 }
+
 export type AuditSeverity = "info" | "warning" | "error";
 export interface AuditIssue {
   id: string;
@@ -105,6 +180,8 @@ export interface AuditIssue {
   nodeId?: string;
   suggestion: string;
 }
+
+/** Legacy bridge patch format kept for OpenPencil interoperability. */
 export interface DesignPatch {
   pageId: string;
   nodeId?: string;
