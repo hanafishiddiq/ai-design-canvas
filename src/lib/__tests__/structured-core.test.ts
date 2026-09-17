@@ -4,7 +4,9 @@ import { defaultDirection } from "../foundations";
 import { layoutChildren } from "../layout";
 import { OperationHistory, applyOperation } from "../operations";
 import { planProject } from "../planner";
+import { adaptPageToViewport } from "../responsive";
 import { migrateProject, validateProject } from "../schema";
+import { createSystemVariableCollections, resolveVariable } from "../variables";
 import type { DesignNode } from "../types";
 
 describe("schema v2", () => {
@@ -63,6 +65,35 @@ describe("semantic auto-layout", () => {
     expect(result.nodes[1].x).toBeGreaterThan(result.nodes[0].x);
     expect(result.nodes[0].width).toBe(result.nodes[1].width);
     expect(result.nodes[0].height).toBe(60);
+  });
+});
+
+describe("responsive constraints", () => {
+  it("pins right-constrained nodes and stretches left-right nodes", () => {
+    const project = planProject("Analytics workspace", defaultDirection, "Atlas");
+    const page = structuredClone(project.pages[1]);
+    const right = page.nodes[0];
+    right.constraints = { horizontal: "right", vertical: "top" };
+    const stretch = page.nodes[1];
+    stretch.constraints = { horizontal: "left-right", vertical: "top" };
+    const originalRightMargin = page.width - (right.x + right.width);
+    const originalStretchWidth = stretch.width;
+    const adapted = adaptPageToViewport(page, page.width + 200);
+    const nextRight = adapted.nodes.find((node) => node.id === right.id)!;
+    const nextStretch = adapted.nodes.find((node) => node.id === stretch.id)!;
+    expect(adapted.width - (nextRight.x + nextRight.width)).toBe(originalRightMargin);
+    expect(nextStretch.width).toBe(originalStretchWidth + 200);
+  });
+});
+
+describe("design variables", () => {
+  it("creates theme and density modes with resolvable values", () => {
+    const collections = createSystemVariableCollections(defaultDirection);
+    const colors = collections.find((collection) => collection.id === "system.colors")!;
+    const spacing = collections.find((collection) => collection.id === "system.spacing")!;
+    expect(colors.modes).toEqual(["light", "dark"]);
+    expect(resolveVariable(colors, "color.background", "dark")).not.toBe(resolveVariable(colors, "color.background", "light"));
+    expect(Number(resolveVariable(spacing, "space.3", "comfortable"))).toBeGreaterThan(Number(resolveVariable(spacing, "space.3", "compact")));
   });
 });
 
