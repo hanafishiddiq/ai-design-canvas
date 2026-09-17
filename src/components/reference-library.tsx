@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { ImagePlus, Palette, RefreshCw, Trash2, Upload, X } from "lucide-react";
+import { ImagePlus, LayoutTemplate, Palette, RefreshCw, Trash2, Upload, X } from "lucide-react";
 import { parseDesignMd, serializeDesignMd } from "@/lib/design-md";
 import { generateTokens } from "@/lib/foundations";
 import { analyzeReferenceFile, referenceSummary, suggestedAccent } from "@/lib/reference-analysis";
+import { referenceToDraftPage } from "@/lib/reference-to-design";
 import { LocalProjectRepository } from "@/lib/storage";
 import type { DesignProject, DesignReference, DesignTokens, ReferenceKind } from "@/lib/types";
 
@@ -75,6 +76,20 @@ export function ReferenceLibrary() {
     await save(next);
   };
 
+  const createDraft = async (reference: DesignReference) => {
+    if (!project) return;
+    const next = structuredClone(project);
+    const maxRight = Math.max(...next.pages.map((page) => page.x + page.width), 0);
+    const minTop = Math.min(...next.pages.map((page) => page.y), 80);
+    const draft = referenceToDraftPage(reference, next.tokens, maxRight + 100, minTop);
+    next.pages.push(draft);
+    next.activePageId = draft.id;
+    await save(next);
+    // Studio owns an in-memory reversible history. Reloading after an external
+    // library mutation safely rehydrates that history from the durable project.
+    window.location.reload();
+  };
+
   if (!open) return <button className="fixed bottom-4 right-[345px] z-[87] flex h-9 items-center gap-2 rounded-lg border border-[#343a45] bg-[#14171d]/95 px-3 text-[11px] text-[#d8dce3] shadow-xl backdrop-blur hover:bg-[#1b1f27]" onClick={show}><ImagePlus size={13} /> References</button>;
 
   return <div className="fixed inset-0 z-[83] grid place-items-center bg-black/65 p-6 backdrop-blur-sm">
@@ -94,11 +109,11 @@ export function ReferenceLibrary() {
           <div className="p-3"><div className="flex items-start gap-2"><div className="min-w-0 flex-1"><div className="truncate text-[11px] font-semibold">{reference.name}</div><div className="mt-0.5 text-[9px] uppercase tracking-wide text-[#626c78]">{reference.kind} · {reference.analysis.width}×{reference.analysis.height}</div></div><button className="grid size-7 place-items-center rounded text-[#6f7783] hover:bg-[#2a171a] hover:text-[#ec8792]" onClick={() => void remove(reference.id)}><Trash2 size={12} /></button></div>
             <div className="mt-3 flex gap-1">{reference.analysis.dominantColors.map((color) => <span key={color} className="h-5 flex-1 rounded-sm border border-white/5" style={{ background: color }} title={color} />)}</div>
             <div className="mt-2 text-[9px] leading-4 text-[#727b88]">{reference.analysis.contrast} contrast · luminance {reference.analysis.luminance}</div>
-            <button className="tool-button mt-3 w-full" onClick={() => void applyDirection(reference)}><Palette size={11} /> Apply visual direction</button>
+            <div className="mt-3 grid grid-cols-2 gap-1.5"><button className="tool-button" onClick={() => void applyDirection(reference)}><Palette size={11} /> Direction</button><button className="tool-button primary" onClick={() => void createDraft(reference)}><LayoutTemplate size={11} /> Draft screen</button></div>
           </div>
         </article>)}</div>}
       </div>
-      <div className="border-t border-[#242830] px-4 py-2 text-[9px] text-[#626b78]">Images are analyzed locally. Reference mode records inspiration and palette metadata; literal replication requires a configured vision provider in a later stage.</div>
+      <div className="border-t border-[#242830] px-4 py-2 text-[9px] text-[#626b78]">Images are analyzed locally. “Draft screen” creates editable semantic structure; literal visual replication requires a configured vision model and is deliberately not misrepresented.</div>
     </div>
   </div>;
 }
