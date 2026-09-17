@@ -153,13 +153,34 @@ export interface VariableCollection {
   variables: DesignVariable[];
 }
 
+export type ReferenceKind = "screenshot" | "sketch" | "moodboard" | "asset";
+export interface ReferenceAnalysis {
+  width: number;
+  height: number;
+  aspectRatio: number;
+  averageColor: string;
+  dominantColors: string[];
+  luminance: number;
+  contrast: "low" | "medium" | "high";
+}
+export interface DesignReference {
+  id: string;
+  name: string;
+  kind: ReferenceKind;
+  mimeType: string;
+  dataUrl: string;
+  createdAt: string;
+  notes?: string;
+  analysis: ReferenceAnalysis;
+}
+
 export interface DesignProject {
   id: string;
   name: string;
   prompt: string;
   createdAt: string;
   updatedAt: string;
-  version: 2;
+  version: 3;
   direction: DesignDirection;
   tokens: DesignTokens;
   designMd: string;
@@ -167,6 +188,7 @@ export interface DesignProject {
   flows: FlowEdge[];
   components: Record<string, ComponentDefinition>;
   variables: VariableCollection[];
+  references: DesignReference[];
   activePageId: string;
 }
 
