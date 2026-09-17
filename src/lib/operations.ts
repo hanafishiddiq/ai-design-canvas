@@ -95,6 +95,7 @@ export function applyOperation(project: DesignProject, operation: DesignOperatio
       const [removed] = page.nodes.splice(index, 1);
       for (const candidate of page.nodes) {
         if (candidate.children?.includes(removed.id)) candidate.children = candidate.children.filter((id) => id !== removed.id);
+        if (candidate.parentId === removed.id) delete candidate.parentId;
       }
       next.flows = next.flows.filter((flow) => flow.fromNodeId !== removed.id);
       inverse = { type: "node.insert", pageId: operation.pageId, node: removed, index };
