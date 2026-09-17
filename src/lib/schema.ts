@@ -1,6 +1,6 @@
 import type { DesignProject } from "./types";
 
-export const CURRENT_SCHEMA_VERSION = 2 as const;
+export const CURRENT_SCHEMA_VERSION = 3 as const;
 
 export interface ProjectValidationResult {
   valid: boolean;
@@ -18,6 +18,7 @@ export function validateProject(project: DesignProject): ProjectValidationResult
   if (!project.name.trim()) errors.push("Project name is required.");
   if (!project.pages.length) errors.push("Project must contain at least one page.");
   if (!project.pages.some((page) => page.id === project.activePageId)) errors.push("activePageId must reference an existing page.");
+  if (!Array.isArray(project.references)) errors.push("Project references must be an array.");
 
   const pageIds = new Set<string>();
   const nodeIds = new Set<string>();
@@ -44,15 +45,18 @@ export function validateProject(project: DesignProject): ProjectValidationResult
     if (!nodeIds.has(flow.fromNodeId)) errors.push(`Flow ${flow.id} has missing source node.`);
   }
 
+  const referenceIds = new Set<string>();
+  for (const reference of project.references || []) {
+    if (referenceIds.has(reference.id)) errors.push(`Duplicate reference id: ${reference.id}`);
+    referenceIds.add(reference.id);
+    if (!reference.dataUrl.startsWith("data:image/")) errors.push(`Reference ${reference.id} must use an embedded image data URL.`);
+    if (reference.analysis.width <= 0 || reference.analysis.height <= 0) errors.push(`Reference ${reference.id} has invalid image dimensions.`);
+  }
+
   return { valid: errors.length === 0, errors };
 }
 
-/**
- * Migrates persisted projects into the current schema without discarding unknown
- * design content. Version 1 projects receive semantic containers for components,
- * variables, layout metadata and constraints while preserving their existing
- * absolute geometry.
- */
+/** Migrate durable project files forward without discarding design state. */
 export function migrateProject(raw: unknown): DesignProject {
   if (!isRecord(raw)) throw new Error("Project payload must be an object.");
   const version = typeof raw.version === "number" ? raw.version : 1;
@@ -60,10 +64,8 @@ export function migrateProject(raw: unknown): DesignProject {
 
   const migrated = structuredClone(raw) as Record<string, unknown>;
   if (version <= 1) {
-    migrated.version = 2;
     migrated.components = isRecord(migrated.components) ? migrated.components : {};
     migrated.variables = Array.isArray(migrated.variables) ? migrated.variables : [];
-
     if (Array.isArray(migrated.pages)) {
       migrated.pages = migrated.pages.map((pageValue) => {
         if (!isRecord(pageValue)) return pageValue;
@@ -74,9 +76,7 @@ export function migrateProject(raw: unknown): DesignProject {
             return {
               ...nodeValue,
               layout: isRecord(nodeValue.layout) ? nodeValue.layout : { mode: "absolute" },
-              constraints: isRecord(nodeValue.constraints)
-                ? nodeValue.constraints
-                : { horizontal: "left", vertical: "top" },
+              constraints: isRecord(nodeValue.constraints) ? nodeValue.constraints : { horizontal: "left", vertical: "top" },
             };
           });
         }
@@ -84,6 +84,8 @@ export function migrateProject(raw: unknown): DesignProject {
       });
     }
   }
+  if (version <= 2) migrated.references = Array.isArray(migrated.references) ? migrated.references : [];
+  migrated.version = CURRENT_SCHEMA_VERSION;
 
   const project = migrated as unknown as DesignProject;
   const validation = validateProject(project);
