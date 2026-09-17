@@ -1,10 +1,19 @@
 import { migrateProject, validateProject } from "./schema";
 import type { DesignProject } from "./types";
 
-const CURRENT_KEY = "ai-design-canvas.project.v3";
-const CHECKPOINT_KEY = "ai-design-canvas.checkpoints.v3";
-const LEGACY_KEYS = ["ai-design-canvas.project.v2", "ai-design-canvas.project.v1"];
-const LEGACY_CHECKPOINT_KEYS = ["ai-design-canvas.checkpoints.v2"];
+const CURRENT_KEY = "ai-design-canvas.project.v5";
+const CHECKPOINT_KEY = "ai-design-canvas.checkpoints.v5";
+const LEGACY_KEYS = [
+  "ai-design-canvas.project.v4",
+  "ai-design-canvas.project.v3",
+  "ai-design-canvas.project.v2",
+  "ai-design-canvas.project.v1",
+];
+const LEGACY_CHECKPOINT_KEYS = [
+  "ai-design-canvas.checkpoints.v4",
+  "ai-design-canvas.checkpoints.v3",
+  "ai-design-canvas.checkpoints.v2",
+];
 const MAX_CHECKPOINTS = 20;
 
 export interface ProjectCheckpoint {
@@ -57,11 +66,7 @@ export class LocalProjectRepository implements ProjectRepository {
     if (latest?.project.updatedAt === project.updatedAt) return;
     checkpoints.unshift({ id: `checkpoint_${Date.now().toString(36)}`, createdAt: new Date().toISOString(), project: structuredClone(project) });
     try { localStorage.setItem(CHECKPOINT_KEY, JSON.stringify(checkpoints.slice(0, MAX_CHECKPOINTS))); }
-    catch {
-      // Large embedded references can exhaust browser quota; keep the live project
-      // save path authoritative and prune old checkpoints aggressively.
-      localStorage.setItem(CHECKPOINT_KEY, JSON.stringify(checkpoints.slice(0, 3)));
-    }
+    catch { localStorage.setItem(CHECKPOINT_KEY, JSON.stringify(checkpoints.slice(0, 3))); }
   }
 
   async load() {
