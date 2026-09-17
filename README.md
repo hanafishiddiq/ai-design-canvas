@@ -1,46 +1,39 @@
 # AI Design Canvas
 
+> **North star & agent context:** This README describes the implementation. Before substantial product/architecture work, read [`AGENTS.md`](./AGENTS.md), [`docs/VISION.md`](./docs/VISION.md), [`docs/PRODUCT_SPEC.md`](./docs/PRODUCT_SPEC.md), [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md), and [`docs/ROADMAP.md`](./docs/ROADMAP.md). Those documents define the long-term product; the current MVP is only one stage toward it.
+
 AI Design Canvas is an open-source, design-first product workbench that combines the strongest ideas from **OpenStitch-style design intelligence** with an **OpenPencil-ready structured canvas model**.
 
-The current MVP is intentionally Vercel-friendly: the web editor works without an AI API key or native daemon, while a clean adapter boundary allows a local/remote OpenPencil headless or MCP engine to become the authoritative renderer later.
-
-> **Long-term north star:** build an open-source AI-native design operating system where design intent, editable structured design, product flows and production code remain synchronized and accessible to both humans and coding agents.
-
-## Start here: agents, contributors and future sessions
-
-The README describes the current implementation. The **authoritative long-term intent** lives in these documents:
-
-1. [`AGENTS.md`](./AGENTS.md) — first-read operating guide for coding/design agents, non-negotiable product intent and engineering rules.
-2. [`docs/VISION.md`](./docs/VISION.md) — why the product exists and what the mature product should become.
-3. [`docs/PRODUCT_SPEC.md`](./docs/PRODUCT_SPEC.md) — comprehensive target capability list and definition of done.
-4. [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) — target architecture, source-of-truth boundaries, agent/engine/code integration model.
-5. [`docs/ROADMAP.md`](./docs/ROADMAP.md) — dependency-ordered path from this MVP to the target product.
-
-Future agents should **not redefine the product around whatever subset happens to be implemented today**. The current code is a foundation toward the vision above.
+The current web editor is intentionally Vercel-friendly: core design workflows work without an AI API key or native daemon, while adapter boundaries let a local/remote OpenPencil MCP engine and optional hosted vision provider add deeper capabilities without becoming hard dependencies.
 
 ## What already works
 
-- Prompt → coherent 4-screen product plan with deterministic local generation.
+- Prompt → coherent multi-screen product plan with deterministic local generation.
 - Curated design foundations inspired by the public visual characteristics of Linear, Stripe, Vercel, Attio and Raycast.
 - Style mixer: foundation, treatment, density, radius, motion, theme and accent.
-- Typed, JSON-serializable design document with pages, nodes, tokens and prototype flows.
+- Versioned, migratable JSON design document with pages, nested nodes, variables, components, references and prototype flows.
+- Reversible design-operation model with undo/redo and local recovery checkpoints.
+- Semantic auto-layout primitives (horizontal/vertical, fixed/hug/fill) and responsive constraints.
 - First-class `DESIGN.md` generation, editing, parsing/import and export.
-- Interactive multi-screen canvas with pan, zoom, frame dragging and node dragging.
-- Node inspector for content, geometry, typography, color, spacing and radius.
+- Structured Studio canvas with pan/zoom, frame/node dragging, resize, multi-select, duplicate/delete, layers and component creation.
+- Responsive viewport preview for mobile/tablet/desktop constraints.
+- Component definitions and reusable instances.
 - Prototype navigation edges plus Play mode.
 - Deterministic anti-slop audit with safe auto-refinement.
-- Project JSON, selected-screen HTML and OpenPencil bridge JSON exports.
+- Project JSON, semantic HTML, React TSX and OpenPencil bridge exports.
+- Browser-local reference library for screenshots/sketches/moodboards with palette/contrast analysis and editable local semantic drafts.
+- Optional hosted image interpretation through the OpenAI Responses API with strict Structured Outputs; image upload occurs only on explicit `AI interpret` action.
 - Local persistence via an abstract `ProjectRepository` interface.
-- `OpenPencilAdapter` abstraction with local and HTTP implementations.
+- Native OpenPencil MCP HTTP connector with verified server identity, capability discovery, and idempotent sync through official code-to-design tools (`set_design_md`, `upsert_variables`, `upsert_component`, `upsert_screen`).
 
 ## Architecture
 
 ```text
-Product prompt / DESIGN.md / style mixer
+Prompt / DESIGN.md / image references
                   │
                   ▼
         Design intelligence layer
-     foundations · planner · anti-slop
+ foundations · vision · planner · anti-slop
                   │
                   ▼
          Portable design contract
@@ -49,42 +42,51 @@ Product prompt / DESIGN.md / style mixer
                   ├────────────────────┐
                   ▼                    ▼
        Structured design model   Agent context
-       pages · nodes · tokens     Codex/Claude/etc.
+ pages · nodes · variables       Codex/Claude/etc.
+ components · constraints
                   │
                   ▼
-        Interactive web canvas
-       pan · zoom · edit · flows
+       Operation-backed Studio
+ undo · layout · components · flows
                   │
           ┌───────┴────────┐
           ▼                ▼
-     Local adapter     OpenPencil adapter
-                       MCP/headless/HTTP
+     Local web core   OpenPencil MCP
+                      headless / desktop
           │                │
           └───────┬────────┘
                   ▼
-        JSON / HTML / codegen
+     JSON / HTML / React / codegen
 ```
 
-The key architectural decision is that **`DESIGN.md` and the structured document are separate on purpose**:
+The key architectural decision is that **`DESIGN.md`, structured design state, and production code are separate but explicitly mappable sources of truth**:
 
-- `DESIGN.md` is the portable design intent and machine-readable token contract that arbitrary coding agents can understand.
-- The structured document is the editable spatial state used by the canvas and eventual OpenPencil engine.
-
-The target architecture expands this into an explicit design↔code round-trip; see [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md).
+- `DESIGN.md` is the portable design intent and machine-readable token contract arbitrary coding agents can understand.
+- The structured document is precise editable spatial/semantic state used by the canvas and design engines.
+- Production code remains real code, not a hidden serialization format for the canvas.
 
 ## Core modules
 
 | Module | Responsibility |
 | --- | --- |
+| `src/lib/types.ts` | Versioned structured design document model |
+| `src/lib/schema.ts` | Schema validation + migrations |
+| `src/lib/operations.ts` | Reversible typed operations + undo/redo |
+| `src/lib/layout.ts` | Auto-layout computation |
+| `src/lib/responsive.ts` | Responsive constraint projection |
+| `src/lib/components.ts` | Components/instances primitives |
+| `src/lib/variables.ts` | Variable collections + modes |
 | `src/lib/foundations.ts` | Foundation presets, style mixing and token generation |
 | `src/lib/design-md.ts` | `DESIGN.md` serialize/parse/merge bridge |
 | `src/lib/planner.ts` | Local deterministic prompt → multi-screen planner |
+| `src/lib/reference-analysis.ts` | Local image analysis/compression/palette extraction |
+| `src/lib/vision.ts` | Semantic hosted-vision schema and design conversion |
 | `src/lib/anti-slop.ts` | Audit rules and safe refinement patches |
-| `src/lib/types.ts` | Git-friendly structured design document model |
-| `src/lib/openpencil-adapter.ts` | Local/HTTP adapter contract for an OpenPencil engine |
-| `src/lib/storage.ts` | Persistence abstraction and local implementation |
-| `src/lib/export.ts` | Project/screen export helpers |
-| `src/components/workspace.tsx` | Canvas, inspector, style mixer, flow and prototype UI |
+| `src/lib/openpencil-mcp.ts` | Native OpenPencil MCP JSON-RPC connector |
+| `src/lib/openpencil-convert.ts` | Structured model → OpenPencil PenNode conversion |
+| `src/lib/storage.ts` | Persistence/checkpoint abstraction |
+| `src/lib/export.ts` | Semantic project/screen code export |
+| `src/components/studio-workspace.tsx` | Operation-backed professional canvas/editor |
 
 ## DESIGN.md contract
 
@@ -111,22 +113,28 @@ Keep the product dense, quiet and tool-like.
 
 Editing prose does not destroy token structure, and regenerating token frontmatter preserves the prose body.
 
-## OpenPencil strategy
+## OpenPencil integration
 
-OpenPencil's modern editor/core is substantially more capable than a simple React component and may involve native/Rust/CanvasKit/headless infrastructure. Running that directly inside Vercel serverless would make the product fragile.
+Run current OpenPencil locally/headless with a backing `.op` file:
 
-This repository therefore exposes an adapter boundary:
-
-```ts
-interface OpenPencilAdapter {
-  load(project: DesignProject): Promise<void>;
-  save(): Promise<DesignProject>;
-  applyPatches(patches: DesignPatch[]): Promise<void>;
-  export(format: "json" | "openpencil-bridge"): Promise<string>;
-}
+```bash
+op start --headless --file design.op
 ```
 
-Today the web app uses `LocalDesignAdapter`. `HttpOpenPencilAdapter` is the seam for a local desktop bridge, remote headless service, or MCP-backed daemon. This lets the Vercel UI stay stateless/serverless-safe while still supporting a richer OpenPencil engine later.
+OpenPencil exposes MCP HTTP on port 3100 by default. Open **OpenPencil** in the Studio footer, verify `http://127.0.0.1:3100/mcp`, then **Sync project**. AI Design Canvas discovers tools dynamically and projects the document into OpenPencil through its code-to-design API instead of mutating private `.op` internals.
+
+The web core remains functional when OpenPencil is offline.
+
+## Optional hosted vision
+
+Core screenshot/sketch ingestion works locally and does not upload images. To enable the explicit **AI interpret** action, configure server-side environment variables:
+
+```bash
+OPENAI_API_KEY=...
+OPENAI_VISION_MODEL=gpt-5.6-terra
+```
+
+The browser never receives the API key. The server route sends only the selected compressed reference, uses `store: false`, and requests strict JSON-schema output that is converted into editable structured nodes.
 
 ## Local development
 
@@ -144,29 +152,16 @@ npm test
 npm run build
 ```
 
-No API key is required for the current MVP.
+No API key is required for the local planner, reference analyzer, canvas, codegen, or OpenPencil localhost bridge.
 
 ## Vercel
 
-The project is a normal Next.js App Router application and is safe to deploy from the Git-linked repository. The default MVP keeps generated project state in browser local storage, so no database or secret is required.
-
-Optional future provider/bridge variables are documented in `.env.example`.
+The project is a Next.js App Router application deployed from the Git-linked repository. Project state is currently browser-local; no database is needed for the single-user/local-first baseline. Optional provider credentials stay in Vercel environment variables.
 
 ## Roadmap
 
-The complete staged roadmap is maintained in [`docs/ROADMAP.md`](./docs/ROADMAP.md). Immediate architectural priorities are:
-
-1. operation model, undo/redo and schema migrations;
-2. auto-layout/responsive constraints;
-3. components, instances, variants, variables and themes;
-4. professional canvas editing primitives;
-5. real OpenPencil/headless synchronization;
-6. screenshot/sketch → semantic structured design;
-7. agent/MCP editing of the structured document;
-8. production-code mapping and visual QA/round-trip.
-
-The comprehensive feature-completeness definition is in [`docs/PRODUCT_SPEC.md`](./docs/PRODUCT_SPEC.md).
+The implementation roadmap lives in [`docs/ROADMAP.md`](./docs/ROADMAP.md). The capability/definition-of-done matrix lives in [`docs/PRODUCT_SPEC.md`](./docs/PRODUCT_SPEC.md). Do not treat this condensed README list as the final product scope.
 
 ## License and provenance
 
-The original code in this repository is MIT licensed. See `LICENSE` and `THIRD_PARTY_NOTICES.md` for provenance and conceptual inspiration notes.
+Original code in this repository is MIT licensed. See `LICENSE` and `THIRD_PARTY_NOTICES.md` for provenance and conceptual-inspiration notes.
