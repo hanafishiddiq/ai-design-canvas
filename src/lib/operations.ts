@@ -7,6 +7,7 @@ export type ProjectEditableFields = Pick<DesignProject, "name" | "prompt" | "act
 };
 
 export type DesignOperation =
+  | { type: "project.replace"; project: DesignProject }
   | { type: "project.update"; changes: Partial<ProjectEditableFields> }
   | { type: "page.update"; pageId: string; changes: Partial<Omit<DesignPage, "id" | "nodes">> }
   | { type: "node.update"; pageId: string; nodeId: string; changes: Partial<Omit<DesignNode, "id">> }
@@ -49,6 +50,12 @@ function findNode(project: DesignProject, pageId: string, nodeId: string) {
 }
 
 export function applyOperation(project: DesignProject, operation: DesignOperation): AppliedOperation {
+  if (operation.type === "project.replace") {
+    const replacement = structuredClone(operation.project);
+    replacement.updatedAt = new Date().toISOString();
+    return { project: replacement, inverse: { type: "project.replace", project: structuredClone(project) } };
+  }
+
   const next = structuredClone(project);
   let inverse: DesignOperation;
 
