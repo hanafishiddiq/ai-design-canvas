@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { suggestPageCodeMapping, upsertCodeMapping } from "../code-mapping";
 import { createComponentDefinition, instantiateComponent } from "../components";
 import { defaultDirection } from "../foundations";
 import { layoutChildren } from "../layout";
@@ -8,9 +9,10 @@ import { referenceSummary, suggestedAccent } from "../reference-analysis";
 import { adaptPageToViewport } from "../responsive";
 import { migrateProject, validateProject } from "../schema";
 import { createSystemVariableCollections, resolveVariable } from "../variables";
+import { compareRuntimeSnapshot } from "../visual-qa";
 import type { DesignNode, DesignReference } from "../types";
 
-describe("schema v3", () => {
+describe("schema v5", () => {
   it("migrates a v1 project without losing pages", () => {
     const current = planProject("Analytics workspace", defaultDirection, "Atlas");
     const legacy = structuredClone(current) as unknown as Record<string, unknown>;
@@ -18,23 +20,29 @@ describe("schema v3", () => {
     delete legacy.components;
     delete legacy.variables;
     delete legacy.references;
+    delete legacy.review;
+    delete legacy.codeMappings;
     const pagesBefore = (legacy.pages as unknown[]).length;
     const migrated = migrateProject(legacy);
-    expect(migrated.version).toBe(3);
+    expect(migrated.version).toBe(5);
     expect(migrated.pages).toHaveLength(pagesBefore);
     expect(migrated.components).toEqual({});
     expect(migrated.variables).toEqual([]);
     expect(migrated.references).toEqual([]);
+    expect(migrated.review).toEqual({ status: "draft", threads: [] });
+    expect(migrated.codeMappings).toEqual([]);
     expect(validateProject(migrated).valid).toBe(true);
   });
 
-  it("migrates a v2 project by adding references", () => {
+  it("migrates a v3 project by adding review and code mappings", () => {
     const legacy = structuredClone(planProject("Workspace", defaultDirection, "Atlas")) as unknown as Record<string, unknown>;
-    legacy.version = 2;
-    delete legacy.references;
+    legacy.version = 3;
+    delete legacy.review;
+    delete legacy.codeMappings;
     const migrated = migrateProject(legacy);
-    expect(migrated.version).toBe(3);
-    expect(migrated.references).toEqual([]);
+    expect(migrated.version).toBe(5);
+    expect(migrated.review.status).toBe("draft");
+    expect(migrated.codeMappings).toEqual([]);
   });
 });
 
@@ -132,5 +140,24 @@ describe("reference metadata", () => {
     };
     expect(suggestedAccent(reference)).toBe("#ff3366");
     expect(referenceSummary(reference)).toContain("dark visual weight");
+  });
+});
+
+describe("design-code roundtrip", () => {
+  it("stores a page mapping and detects runtime drift", () => {
+    const project = planProject("Analytics workspace", defaultDirection, "Atlas");
+    const page = project.pages[0];
+    const mapped = upsertCodeMapping(project, suggestPageCodeMapping(project, page.id, "nextjs"));
+    expect(mapped.codeMappings).toHaveLength(1);
+    expect(mapped.codeMappings[0].pageId).toBe(page.id);
+    const node = page.nodes[0];
+    const report = compareRuntimeSnapshot(mapped, {
+      pageId: page.id,
+      route: page.route,
+      viewport: { width: page.width, height: page.height },
+      capturedAt: new Date().toISOString(),
+      nodes: [{ nodeId: node.id, x: node.x + 20, y: node.y, width: node.width, height: node.height, text: node.text }],
+    });
+    expect(report.issues.some((issue) => issue.kind === "geometry")).toBe(true);
   });
 });
