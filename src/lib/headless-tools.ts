@@ -50,7 +50,20 @@ export async function callHeadlessTool(name: string, rawArguments: unknown): Pro
   if (name === "project_openpencil_conversion") return projectToOpenPencilConversion(projectArg(args));
   if (name === "project_summary") {
     const project = projectArg(args), audit = summarizeAudit(project);
-    return { id: project.id, name: project.name, schemaVersion: project.version, updatedAt: project.updatedAt, designDirection: project.direction, pages: project.pages.map((page) => ({ id: page.id, name: page.name, route: page.route, nodes: page.nodes.length })), components: Object.values(project.components).map((component) => ({ id: component.id, name: component.name, nodes: component.nodes.length })), variableCollections: project.variables.map((collection) => ({ id: collection.id, modes: collection.modes, variables: collection.variables.length })), references: project.references.map((reference) => ({ id: reference.id, name: reference.name, kind: reference.kind })), review: { status: project.review.status, openThreads: project.review.threads.filter((thread) => !thread.resolvedAt).length }, audit: { score: audit.score, errors: audit.errors, warnings: audit.warnings } };
+    return {
+      id: project.id,
+      name: project.name,
+      schemaVersion: project.version,
+      updatedAt: project.updatedAt,
+      designDirection: project.direction,
+      pages: project.pages.map((page) => ({ id: page.id, name: page.name, route: page.route, nodes: page.nodes.length })),
+      components: Object.values(project.components).map((component) => ({ id: component.id, name: component.name, nodes: component.nodes.length })),
+      variableCollections: project.variables.map((collection) => ({ id: collection.id, modes: collection.modes, variables: collection.variables.length })),
+      references: project.references.map((reference) => ({ id: reference.id, name: reference.name, kind: reference.kind })),
+      review: { status: project.review.status, openThreads: project.review.threads.filter((thread) => !thread.resolved).length },
+      codeMappings: project.codeMappings.length,
+      audit: { score: audit.score, errors: audit.errors, warnings: audit.warnings },
+    };
   }
   throw new Error(`Unknown tool: ${name}`);
 }
