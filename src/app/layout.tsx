@@ -4,6 +4,8 @@ import { CodeExportPanel } from "@/components/code-export-panel";
 import { OpenPencilConnector } from "@/components/openpencil-connector";
 import { ReferenceLibrary } from "@/components/reference-library";
 import { ResponsivePreview } from "@/components/responsive-preview";
+import { ReviewPanel } from "@/components/review-panel";
+import { RoundtripPanel } from "@/components/roundtrip-panel";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -12,5 +14,5 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body>{children}<AiEditPanel /><ReferenceLibrary /><CodeExportPanel /><ResponsivePreview /><OpenPencilConnector /></body></html>;
+  return <html lang="en"><body>{children}<ReviewPanel /><RoundtripPanel /><AiEditPanel /><ReferenceLibrary /><CodeExportPanel /><ResponsivePreview /><OpenPencilConnector /></body></html>;
 }
