@@ -4,6 +4,20 @@ AI Design Canvas is an open-source, design-first product workbench that combines
 
 The current MVP is intentionally Vercel-friendly: the web editor works without an AI API key or native daemon, while a clean adapter boundary allows a local/remote OpenPencil headless or MCP engine to become the authoritative renderer later.
 
+> **Long-term north star:** build an open-source AI-native design operating system where design intent, editable structured design, product flows and production code remain synchronized and accessible to both humans and coding agents.
+
+## Start here: agents, contributors and future sessions
+
+The README describes the current implementation. The **authoritative long-term intent** lives in these documents:
+
+1. [`AGENTS.md`](./AGENTS.md) — first-read operating guide for coding/design agents, non-negotiable product intent and engineering rules.
+2. [`docs/VISION.md`](./docs/VISION.md) — why the product exists and what the mature product should become.
+3. [`docs/PRODUCT_SPEC.md`](./docs/PRODUCT_SPEC.md) — comprehensive target capability list and definition of done.
+4. [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) — target architecture, source-of-truth boundaries, agent/engine/code integration model.
+5. [`docs/ROADMAP.md`](./docs/ROADMAP.md) — dependency-ordered path from this MVP to the target product.
+
+Future agents should **not redefine the product around whatever subset happens to be implemented today**. The current code is a foundation toward the vision above.
+
 ## What already works
 
 - Prompt → coherent 4-screen product plan with deterministic local generation.
@@ -55,6 +69,8 @@ The key architectural decision is that **`DESIGN.md` and the structured document
 
 - `DESIGN.md` is the portable design intent and machine-readable token contract that arbitrary coding agents can understand.
 - The structured document is the editable spatial state used by the canvas and eventual OpenPencil engine.
+
+The target architecture expands this into an explicit design↔code round-trip; see [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md).
 
 ## Core modules
 
@@ -138,13 +154,18 @@ Optional future provider/bridge variables are documented in `.env.example`.
 
 ## Roadmap
 
-1. Connect a real OpenPencil MCP/headless process to `HttpOpenPencilAdapter`.
-2. Add screenshot/sketch → semantic design plan ingestion.
-3. Add component/instance semantics and auto-layout constraints to the internal document.
-4. Add provider adapters for model-backed product planning and visual critique while retaining the local fallback.
-5. Add authenticated cloud projects, collaboration and comments.
-6. Add production-code round-trip and screenshot visual QA.
-7. Add larger foundation/skill libraries with explicit provenance and licensing metadata.
+The complete staged roadmap is maintained in [`docs/ROADMAP.md`](./docs/ROADMAP.md). Immediate architectural priorities are:
+
+1. operation model, undo/redo and schema migrations;
+2. auto-layout/responsive constraints;
+3. components, instances, variants, variables and themes;
+4. professional canvas editing primitives;
+5. real OpenPencil/headless synchronization;
+6. screenshot/sketch → semantic structured design;
+7. agent/MCP editing of the structured document;
+8. production-code mapping and visual QA/round-trip.
+
+The comprehensive feature-completeness definition is in [`docs/PRODUCT_SPEC.md`](./docs/PRODUCT_SPEC.md).
 
 ## License and provenance
 
