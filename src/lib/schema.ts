@@ -1,6 +1,6 @@
 import type { DesignProject } from "./types";
 
-export const CURRENT_SCHEMA_VERSION = 3 as const;
+export const CURRENT_SCHEMA_VERSION = 5 as const;
 
 export interface ProjectValidationResult {
   valid: boolean;
@@ -19,9 +19,12 @@ export function validateProject(project: DesignProject): ProjectValidationResult
   if (!project.pages.length) errors.push("Project must contain at least one page.");
   if (!project.pages.some((page) => page.id === project.activePageId)) errors.push("activePageId must reference an existing page.");
   if (!Array.isArray(project.references)) errors.push("Project references must be an array.");
+  if (!project.review || !Array.isArray(project.review.threads)) errors.push("Project review state is required.");
+  if (!Array.isArray(project.codeMappings)) errors.push("Project code mappings must be an array.");
 
   const pageIds = new Set<string>();
   const nodeIds = new Set<string>();
+  const componentIds = new Set(Object.keys(project.components || {}));
   for (const page of project.pages) {
     if (pageIds.has(page.id)) errors.push(`Duplicate page id: ${page.id}`);
     pageIds.add(page.id);
@@ -51,6 +54,24 @@ export function validateProject(project: DesignProject): ProjectValidationResult
     referenceIds.add(reference.id);
     if (!reference.dataUrl.startsWith("data:image/")) errors.push(`Reference ${reference.id} must use an embedded image data URL.`);
     if (reference.analysis.width <= 0 || reference.analysis.height <= 0) errors.push(`Reference ${reference.id} has invalid image dimensions.`);
+  }
+
+  const threadIds = new Set<string>();
+  for (const thread of project.review?.threads || []) {
+    if (threadIds.has(thread.id)) errors.push(`Duplicate review thread id: ${thread.id}`);
+    threadIds.add(thread.id);
+    if (!pageIds.has(thread.pageId)) errors.push(`Review thread ${thread.id} references missing page ${thread.pageId}.`);
+    if (thread.nodeId && !nodeIds.has(thread.nodeId)) errors.push(`Review thread ${thread.id} references missing node ${thread.nodeId}.`);
+  }
+
+  const mappingIds = new Set<string>();
+  for (const mapping of project.codeMappings || []) {
+    if (mappingIds.has(mapping.id)) errors.push(`Duplicate code mapping id: ${mapping.id}`);
+    mappingIds.add(mapping.id);
+    if (!mapping.filePath.trim()) errors.push(`Code mapping ${mapping.id} requires a file path.`);
+    if (mapping.pageId && !pageIds.has(mapping.pageId)) errors.push(`Code mapping ${mapping.id} references missing page ${mapping.pageId}.`);
+    if (mapping.nodeId && !nodeIds.has(mapping.nodeId)) errors.push(`Code mapping ${mapping.id} references missing node ${mapping.nodeId}.`);
+    if (mapping.componentId && !componentIds.has(mapping.componentId)) errors.push(`Code mapping ${mapping.id} references missing component ${mapping.componentId}.`);
   }
 
   return { valid: errors.length === 0, errors };
@@ -85,6 +106,8 @@ export function migrateProject(raw: unknown): DesignProject {
     }
   }
   if (version <= 2) migrated.references = Array.isArray(migrated.references) ? migrated.references : [];
+  if (version <= 3) migrated.review = isRecord(migrated.review) ? migrated.review : { status: "draft", threads: [] };
+  if (version <= 4) migrated.codeMappings = Array.isArray(migrated.codeMappings) ? migrated.codeMappings : [];
   migrated.version = CURRENT_SCHEMA_VERSION;
 
   const project = migrated as unknown as DesignProject;
