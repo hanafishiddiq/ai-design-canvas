@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { CodeExportPanel } from "@/components/code-export-panel";
 import { OpenPencilConnector } from "@/components/openpencil-connector";
 import { ResponsivePreview } from "@/components/responsive-preview";
 import "./globals.css";
@@ -9,5 +10,5 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body>{children}<ResponsivePreview /><OpenPencilConnector /></body></html>;
+  return <html lang="en"><body>{children}<CodeExportPanel /><ResponsivePreview /><OpenPencilConnector /></body></html>;
 }
