@@ -143,7 +143,7 @@ export class OperationHistory {
   canRedo() { return this.future.length > 0; }
   history() { return this.past.map((entry) => ({ ...entry })); }
 
-  execute(operation: DesignOperation, label = operation.type) {
+  execute(operation: DesignOperation, label: string = operation.type) {
     const applied = applyOperation(this.project, operation);
     const transaction: OperationTransaction = {
       id: `op_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
