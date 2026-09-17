@@ -77,15 +77,11 @@ export function compareRuntimeSnapshot(project: DesignProject, snapshot: Runtime
     }
     matched += 1;
     const expected = expectedAbsolute(node, page);
-    const geometryDiff = {
-      x: delta(expected.x, runtime.x), y: delta(expected.y, runtime.y), width: delta(node.width, runtime.width), height: delta(node.height, runtime.height),
-    };
+    const geometryDiff = { x: delta(expected.x, runtime.x), y: delta(expected.y, runtime.y), width: delta(node.width, runtime.width), height: delta(node.height, runtime.height) };
     if (Math.max(geometryDiff.x, geometryDiff.y, geometryDiff.width, geometryDiff.height) > tolerancePx) {
       issues.push({ kind: "geometry", severity: Math.max(...Object.values(geometryDiff)) > tolerancePx * 3 ? "error" : "warning", nodeId: node.id, message: `${node.name} geometry drift: Δx ${geometryDiff.x}px, Δy ${geometryDiff.y}px, Δw ${geometryDiff.width}px, Δh ${geometryDiff.height}px.`, design: { ...expected, width: node.width, height: node.height }, runtime });
     }
-    if (node.text !== undefined && runtime.text !== undefined && node.text.trim() !== runtime.text.trim()) {
-      issues.push({ kind: "content", severity: "warning", nodeId: node.id, message: `${node.name} text differs from the design.`, design: node.text, runtime: runtime.text });
-    }
+    if (node.text !== undefined && runtime.text !== undefined && node.text.trim() !== runtime.text.trim()) issues.push({ kind: "content", severity: "warning", nodeId: node.id, message: `${node.name} text differs from the design.`, design: node.text, runtime: runtime.text });
     const styleMismatches: string[] = [];
     if (node.style.color && runtime.color && styleValue(node.style.color) !== styleValue(runtime.color)) styleMismatches.push(`color ${node.style.color}→${runtime.color}`);
     if (node.style.background && runtime.background && styleValue(node.style.background) !== styleValue(runtime.background)) styleMismatches.push(`background ${node.style.background}→${runtime.background}`);
@@ -97,9 +93,7 @@ export function compareRuntimeSnapshot(project: DesignProject, snapshot: Runtime
     if (runtime.visible !== undefined && runtime.visible !== expectedVisible) issues.push({ kind: "visibility", severity: "warning", nodeId: node.id, message: `${node.name} visibility differs from the design.` });
   }
 
-  for (const runtime of snapshot.nodes) {
-    if (!designById.has(runtime.nodeId)) issues.push({ kind: "unexpected", severity: "info", nodeId: runtime.nodeId, message: `Runtime node ${runtime.nodeId} has no matching design node.` });
-  }
+  for (const runtime of snapshot.nodes) if (!designById.has(runtime.nodeId)) issues.push({ kind: "unexpected", severity: "info", nodeId: runtime.nodeId, message: `Runtime node ${runtime.nodeId} has no matching design node.` });
 
   const errors = issues.filter((issue) => issue.severity === "error").length;
   const warnings = issues.filter((issue) => issue.severity === "warning").length;
@@ -108,15 +102,21 @@ export function compareRuntimeSnapshot(project: DesignProject, snapshot: Runtime
   return { pageId: page.id, score, matched, designNodes: page.nodes.length, runtimeNodes: snapshot.nodes.length, issues };
 }
 
-/** Browser helper for instrumented production pages that preserve data-node-id mappings. */
+/** Browser helper for generated/instrumented pages that preserve data-page-id and data-node-id. */
 export function captureRuntimeManifest(root: ParentNode = document, pageId: string, route = location.pathname): RuntimePageSnapshot {
-  const elements = [...root.querySelectorAll<HTMLElement>("[data-node-id]")];
+  const pageSelector = `[data-page-id="${typeof CSS !== "undefined" && CSS.escape ? CSS.escape(pageId) : pageId.replace(/"/g, "\\\"")}"]`;
+  const pageRoot = root.querySelector<HTMLElement>(pageSelector);
+  const pageRect = pageRoot?.getBoundingClientRect();
+  const scope: ParentNode = pageRoot || root;
+  const elements = [...scope.querySelectorAll<HTMLElement>("[data-node-id]")];
   const nodes = elements.map((element): RuntimeNodeSnapshot => {
     const rect = element.getBoundingClientRect();
     const style = getComputedStyle(element);
     return {
       nodeId: element.dataset.nodeId || "",
-      x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height),
+      x: Math.round(rect.x - (pageRect?.x || 0)),
+      y: Math.round(rect.y - (pageRect?.y || 0)),
+      width: Math.round(rect.width), height: Math.round(rect.height),
       text: element.textContent?.trim() || undefined,
       color: style.color || undefined,
       background: style.backgroundColor && style.backgroundColor !== "rgba(0, 0, 0, 0)" ? style.backgroundColor : undefined,
