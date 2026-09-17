@@ -4,25 +4,37 @@ import { defaultDirection } from "../foundations";
 import { layoutChildren } from "../layout";
 import { OperationHistory, applyOperation } from "../operations";
 import { planProject } from "../planner";
+import { referenceSummary, suggestedAccent } from "../reference-analysis";
 import { adaptPageToViewport } from "../responsive";
 import { migrateProject, validateProject } from "../schema";
 import { createSystemVariableCollections, resolveVariable } from "../variables";
-import type { DesignNode } from "../types";
+import type { DesignNode, DesignReference } from "../types";
 
-describe("schema v2", () => {
+describe("schema v3", () => {
   it("migrates a v1 project without losing pages", () => {
     const current = planProject("Analytics workspace", defaultDirection, "Atlas");
     const legacy = structuredClone(current) as unknown as Record<string, unknown>;
     legacy.version = 1;
     delete legacy.components;
     delete legacy.variables;
+    delete legacy.references;
     const pagesBefore = (legacy.pages as unknown[]).length;
     const migrated = migrateProject(legacy);
-    expect(migrated.version).toBe(2);
+    expect(migrated.version).toBe(3);
     expect(migrated.pages).toHaveLength(pagesBefore);
     expect(migrated.components).toEqual({});
     expect(migrated.variables).toEqual([]);
+    expect(migrated.references).toEqual([]);
     expect(validateProject(migrated).valid).toBe(true);
+  });
+
+  it("migrates a v2 project by adding references", () => {
+    const legacy = structuredClone(planProject("Workspace", defaultDirection, "Atlas")) as unknown as Record<string, unknown>;
+    legacy.version = 2;
+    delete legacy.references;
+    const migrated = migrateProject(legacy);
+    expect(migrated.version).toBe(3);
+    expect(migrated.references).toEqual([]);
   });
 });
 
@@ -109,5 +121,16 @@ describe("components and instances", () => {
     expect(first[0].component?.componentId).toBe(component.id);
     expect(first[0].component?.instanceId).not.toBe(second[0].component?.instanceId);
     expect(first[0].id).not.toBe(second[0].id);
+  });
+});
+
+describe("reference metadata", () => {
+  it("summarizes local image analysis and suggests a saturated accent", () => {
+    const reference: DesignReference = {
+      id: "ref", name: "Dashboard", kind: "screenshot", mimeType: "image/webp", dataUrl: "data:image/webp;base64,x", createdAt: new Date(0).toISOString(),
+      analysis: { width: 1440, height: 900, aspectRatio: 1.6, averageColor: "#202020", dominantColors: ["#202020", "#ff3366", "#aaaaaa"], luminance: 0.18, contrast: "high" },
+    };
+    expect(suggestedAccent(reference)).toBe("#ff3366");
+    expect(referenceSummary(reference)).toContain("dark visual weight");
   });
 });
