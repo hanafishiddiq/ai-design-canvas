@@ -174,13 +174,54 @@ export interface DesignReference {
   analysis: ReferenceAnalysis;
 }
 
+export type ReviewStatus = "draft" | "in-review" | "changes-requested" | "approved";
+export interface ReviewReply {
+  id: string;
+  author: string;
+  message: string;
+  createdAt: string;
+}
+export interface ReviewThread {
+  id: string;
+  pageId: string;
+  nodeId?: string;
+  x?: number;
+  y?: number;
+  author: string;
+  message: string;
+  createdAt: string;
+  updatedAt: string;
+  resolved: boolean;
+  replies: ReviewReply[];
+}
+export interface ReviewState {
+  status: ReviewStatus;
+  threads: ReviewThread[];
+}
+
+export type CodeTarget = "react" | "nextjs" | "html" | "flutter" | "swiftui" | "react-native";
+export interface CodeMapping {
+  id: string;
+  target: CodeTarget;
+  pageId?: string;
+  nodeId?: string;
+  componentId?: string;
+  filePath: string;
+  symbol?: string;
+  route?: string;
+  repository?: string;
+  sourceHash?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface DesignProject {
   id: string;
   name: string;
   prompt: string;
   createdAt: string;
   updatedAt: string;
-  version: 3;
+  version: 5;
   direction: DesignDirection;
   tokens: DesignTokens;
   designMd: string;
@@ -189,6 +230,8 @@ export interface DesignProject {
   components: Record<string, ComponentDefinition>;
   variables: VariableCollection[];
   references: DesignReference[];
+  review: ReviewState;
+  codeMappings: CodeMapping[];
   activePageId: string;
 }
 
