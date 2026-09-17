@@ -80,7 +80,7 @@ export function planProject(prompt: string, direction: DesignDirection, name = "
     prompt,
     createdAt: now,
     updatedAt: now,
-    version: 3,
+    version: 5,
     direction,
     tokens,
     designMd: "",
@@ -89,6 +89,8 @@ export function planProject(prompt: string, direction: DesignDirection, name = "
     components: {},
     variables: createSystemVariableCollections(direction),
     references: [],
+    review: { status: "draft", threads: [] },
+    codeMappings: [],
     activePageId: pages[0].id,
   };
   project.designMd = serializeDesignMd(name, direction, tokens);
