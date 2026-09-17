@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { AiEditPanel } from "@/components/ai-edit-panel";
 import { CodeExportPanel } from "@/components/code-export-panel";
 import { OpenPencilConnector } from "@/components/openpencil-connector";
 import { ReferenceLibrary } from "@/components/reference-library";
@@ -11,5 +12,5 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body>{children}<ReferenceLibrary /><CodeExportPanel /><ResponsivePreview /><OpenPencilConnector /></body></html>;
+  return <html lang="en"><body>{children}<AiEditPanel /><ReferenceLibrary /><CodeExportPanel /><ResponsivePreview /><OpenPencilConnector /></body></html>;
 }
