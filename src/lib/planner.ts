@@ -1,5 +1,6 @@
 import { generateTokens } from "./foundations";
 import { serializeDesignMd } from "./design-md";
+import { createSystemVariableCollections } from "./variables";
 import type { DesignDirection, DesignNode, DesignPage, DesignProject, FlowEdge } from "./types";
 
 let counter = 0;
@@ -86,7 +87,7 @@ export function planProject(prompt: string, direction: DesignDirection, name = "
     pages,
     flows,
     components: {},
-    variables: [],
+    variables: createSystemVariableCollections(direction),
     activePageId: pages[0].id,
   };
   project.designMd = serializeDesignMd(name, direction, tokens);
