@@ -3,6 +3,7 @@ import type { DesignProject } from "./types";
 
 const CURRENT_KEY = "ai-design-canvas.project.v5";
 const CHECKPOINT_KEY = "ai-design-canvas.checkpoints.v5";
+const SYNC_CHANNEL = "ai-design-canvas.project.v5.sync";
 const LEGACY_KEYS = [
   "ai-design-canvas.project.v4",
   "ai-design-canvas.project.v3",
@@ -28,6 +29,7 @@ export interface ProjectRepository {
   clear(): Promise<void>;
   listCheckpoints(): Promise<ProjectCheckpoint[]>;
   restoreCheckpoint(id: string): Promise<DesignProject>;
+  subscribe(listener: (project: DesignProject) => void): () => void;
 }
 
 function parseCheckpoints(raw: string | null): ProjectCheckpoint[] {
@@ -45,6 +47,38 @@ function parseCheckpoints(raw: string | null): ProjectCheckpoint[] {
 }
 
 export class LocalProjectRepository implements ProjectRepository {
+  private readonly sourceId = `repo_${Math.random().toString(36).slice(2)}`;
+  private channel: BroadcastChannel | null = null;
+
+  private getChannel() {
+    if (typeof window === "undefined" || typeof BroadcastChannel === "undefined") return null;
+    this.channel ||= new BroadcastChannel(SYNC_CHANNEL);
+    return this.channel;
+  }
+
+  private broadcast(project: DesignProject) {
+    this.getChannel()?.postMessage({ sourceId: this.sourceId, project });
+  }
+
+  subscribe(listener: (project: DesignProject) => void) {
+    if (typeof window === "undefined") return () => {};
+    const channel = this.getChannel();
+    const onMessage = (event: MessageEvent<{ sourceId?: string; project?: unknown }>) => {
+      if (event.data?.sourceId === this.sourceId || !event.data?.project) return;
+      try { listener(migrateProject(event.data.project)); } catch { /* ignore malformed peer messages */ }
+    };
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== CURRENT_KEY || !event.newValue) return;
+      try { listener(migrateProject(JSON.parse(event.newValue))); } catch { /* ignore malformed storage events */ }
+    };
+    channel?.addEventListener("message", onMessage);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      channel?.removeEventListener("message", onMessage);
+      window.removeEventListener("storage", onStorage);
+    };
+  }
+
   async listCheckpoints() {
     if (typeof window === "undefined") return [];
     const current = parseCheckpoints(localStorage.getItem(CHECKPOINT_KEY));
@@ -90,6 +124,7 @@ export class LocalProjectRepository implements ProjectRepository {
         const migrated = migrateProject(JSON.parse(raw));
         localStorage.setItem(CURRENT_KEY, JSON.stringify(migrated));
         localStorage.removeItem(key);
+        this.broadcast(migrated);
         return migrated;
       } catch { /* try next legacy source */ }
     }
@@ -110,6 +145,7 @@ export class LocalProjectRepository implements ProjectRepository {
     catch (error) {
       throw new Error(`Browser project storage is full. Remove or export large reference images, then retry. ${error instanceof Error ? error.message : ""}`.trim());
     }
+    this.broadcast(project);
   }
 
   async restoreCheckpoint(id: string) {
@@ -119,6 +155,7 @@ export class LocalProjectRepository implements ProjectRepository {
     const restored = structuredClone(checkpoint.project);
     restored.updatedAt = new Date().toISOString();
     localStorage.setItem(CURRENT_KEY, JSON.stringify(restored));
+    this.broadcast(restored);
     return restored;
   }
 
