@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo, useRef, useState } from "react";
 import { BrainCircuit, ImagePlus, LayoutTemplate, Palette, RefreshCw, Trash2, Upload, X } from "lucide-react";
 import { parseDesignMd, serializeDesignMd } from "@/lib/design-md";
@@ -137,7 +138,7 @@ export function ReferenceLibrary() {
       {error && <div className="border-b border-[#4b292e] bg-[#211215] px-4 py-2 text-[10px] text-[#e78c96]">{error}</div>}
       <div className="min-h-0 flex-1 overflow-auto p-4">
         {!project ? <div className="grid h-full place-items-center text-[11px] text-[#6d7582]">No project is saved yet.</div> : project.references.length === 0 ? <div className="grid h-full place-items-center"><div className="max-w-sm text-center"><ImagePlus className="mx-auto text-[#4f5865]" size={28} /><div className="mt-3 text-[12px] font-semibold">No visual references yet</div><div className="mt-1 text-[10px] leading-4 text-[#6f7885]">Upload a screenshot, wireframe, moodboard or asset. The browser compresses and analyzes it locally before storing it in the portable project.</div></div></div> : <div className="grid grid-cols-2 gap-4 xl:grid-cols-3">{project.references.map((reference) => <article key={reference.id} className="overflow-hidden rounded-xl border border-[#2b3039] bg-[#111419]">
-          <div className="flex h-[190px] items-center justify-center overflow-hidden bg-[#080a0d]"><img src={reference.dataUrl} alt={reference.name} className="max-h-full max-w-full object-contain" /></div>
+          <div className="flex h-[190px] items-center justify-center overflow-hidden bg-[#080a0d]"><Image src={reference.dataUrl} alt={reference.name} width={reference.analysis.width} height={reference.analysis.height} unoptimized className="max-h-full max-w-full object-contain" /></div>
           <div className="p-3"><div className="flex items-start gap-2"><div className="min-w-0 flex-1"><div className="truncate text-[11px] font-semibold">{reference.name}</div><div className="mt-0.5 text-[9px] uppercase tracking-wide text-[#626c78]">{reference.kind} · {reference.analysis.width}×{reference.analysis.height}</div></div><button className="grid size-7 place-items-center rounded text-[#6f7783] hover:bg-[#2a171a] hover:text-[#ec8792]" onClick={() => void remove(reference.id)}><Trash2 size={12} /></button></div>
             <div className="mt-3 flex gap-1">{reference.analysis.dominantColors.map((color) => <span key={color} className="h-5 flex-1 rounded-sm border border-white/5" style={{ background: color }} title={color} />)}</div>
             <div className="mt-2 text-[9px] leading-4 text-[#727b88]">{reference.analysis.contrast} contrast · luminance {reference.analysis.luminance}{reference.notes ? <span className="block mt-1 text-[#8b94a3]">{reference.notes}</span> : null}</div>
