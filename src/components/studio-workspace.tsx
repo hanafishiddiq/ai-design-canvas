@@ -18,11 +18,12 @@ import { absoluteNodeRect, alignNodes, distributeNodes, intersects, parseNodeCli
 import { downloadText, exportPageHtml } from "@/lib/export";
 import { defaultDirection, foundationAccent, foundations, generateTokens } from "@/lib/foundations";
 import { applyAutoLayout, layoutChildren } from "@/lib/layout";
+import { deriveStateOverride } from "@/lib/interaction-states";
 import { OperationHistory, type DesignOperation } from "@/lib/operations";
 import { LocalDesignAdapter } from "@/lib/openpencil-adapter";
 import { LocalDeterministicProvider } from "@/lib/provider";
 import { LocalProjectRepository } from "@/lib/storage";
-import type { DesignDirection, DesignNode, DesignPage, DesignProject, DesignTokens, FoundationId, LayoutMode } from "@/lib/types";
+import type { DesignDirection, DesignNode, DesignPage, DesignProject, DesignTokens, FoundationId, InteractionVisualState, LayoutMode, NodeStyle } from "@/lib/types";
 import { StudioNodeLayer } from "./studio-node";
 
 const DEFAULT_PROMPT = "A collaborative analytics workspace for product teams with projects, live metrics, recent activity, and account settings.";
@@ -85,6 +86,7 @@ export function StudioWorkspace() {
   const [projectName, setProjectName] = useState("Signal Workspace");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [tab, setTab] = useState<InspectorTab>("layers");
+  const [stateEditor, setStateEditor] = useState<InteractionVisualState>("hover");
   const [zoom, setZoom] = useState(0.58);
   const [pan, setPan] = useState({ x: 50, y: 40 });
   const [canvasViewport, setCanvasViewport] = useState({ width: 1200, height: 800 });
@@ -267,6 +269,30 @@ export function StudioWorkspace() {
     const node = activePage.nodes.find((item) => item.id === nodeId);
     if (!node) return;
     updateNode(nodeId, { style: { ...node.style, ...changes } }, "Edit appearance");
+  };
+
+  const createStateOverride = () => {
+    if (!project || !selectedNode) return;
+    updateNode(selectedNode.id, { states: { ...(selectedNode.states || {}), [stateEditor]: deriveStateOverride(selectedNode, stateEditor, project.tokens) } }, "Create " + stateEditor + " state");
+  };
+
+  const updateStateStyle = (changes: Partial<NodeStyle>) => {
+    if (!selectedNode) return;
+    const current = selectedNode.states?.[stateEditor] || {};
+    updateNode(selectedNode.id, { states: { ...(selectedNode.states || {}), [stateEditor]: { ...current, style: { ...(current.style || {}), ...changes } } } }, "Edit " + stateEditor + " state");
+  };
+
+  const updateStateText = (text: string) => {
+    if (!selectedNode) return;
+    const current = selectedNode.states?.[stateEditor] || {};
+    updateNode(selectedNode.id, { states: { ...(selectedNode.states || {}), [stateEditor]: { ...current, text } } }, "Edit " + stateEditor + " text");
+  };
+
+  const removeStateOverride = () => {
+    if (!selectedNode?.states?.[stateEditor]) return;
+    const states = { ...selectedNode.states };
+    delete states[stateEditor];
+    updateNode(selectedNode.id, { states: Object.keys(states).length ? states : undefined, previewState: selectedNode.previewState === stateEditor ? undefined : selectedNode.previewState }, "Remove " + stateEditor + " state");
   };
 
   const generate = async () => {
@@ -704,6 +730,7 @@ export function StudioWorkspace() {
             {selectedNode.text !== undefined && <div className="panel-section"><div className="panel-label">Content</div><textarea className="textarea min-h-[70px]" value={selectedNode.text} onChange={(event) => updateNode(selectedNode.id, { text: event.target.value }, "Edit text")} /></div>}
             <div className="panel-section"><div className="panel-label">Geometry</div><div className="grid grid-cols-2 gap-2">{(["x", "y", "width", "height"] as const).map((key) => <label key={key} className="text-[10px] text-[#747c88]">{key.toUpperCase()}<input className="field mt-1" type="number" value={Math.round(selectedNode[key])} onChange={(event) => updateNode(selectedNode.id, { [key]: Number(event.target.value) }, `Edit ${key}`)} /></label>)}</div></div>
             <div className="panel-section"><div className="panel-label">Appearance</div><div className="grid grid-cols-2 gap-2"><label className="text-[10px] text-[#747c88]">Radius<input className="field mt-1" type="number" value={selectedNode.style.radius ?? 0} onChange={(event) => updateNodeStyle(selectedNode.id, { radius: Number(event.target.value) })} /></label><label className="text-[10px] text-[#747c88]">Padding<input className="field mt-1" type="number" value={selectedNode.style.padding ?? 0} onChange={(event) => updateNodeStyle(selectedNode.id, { padding: Number(event.target.value) })} /></label><label className="col-span-2 text-[10px] text-[#747c88]">Background<input className="field mt-1 font-mono text-[11px]" value={selectedNode.style.background ?? ""} onChange={(event) => updateNodeStyle(selectedNode.id, { background: event.target.value || undefined })} /></label></div></div>
+            <div className="panel-section"><div className="panel-label">Interaction states</div><div className="space-y-2"><select className="select" value={stateEditor} onChange={(event) => setStateEditor(event.target.value as InteractionVisualState)}><option value="hover">Hover</option><option value="pressed">Pressed</option><option value="disabled">Disabled</option><option value="loading">Loading</option><option value="error">Error</option><option value="success">Success</option></select>{!selectedNode.states?.[stateEditor] ? <button className="tool-button w-full" onClick={createStateOverride}>Create {stateEditor} override</button> : <><label className="block text-[10px] text-[#747c88]">State text<input className="field mt-1" value={selectedNode.states[stateEditor]?.text ?? selectedNode.text ?? ""} onChange={(event) => updateStateText(event.target.value)} /></label><label className="block text-[10px] text-[#747c88]">Background<input className="field mt-1 font-mono text-[11px]" value={selectedNode.states[stateEditor]?.style?.background ?? ""} onChange={(event) => updateStateStyle({ background: event.target.value || undefined })} /></label><label className="block text-[10px] text-[#747c88]">Opacity<input className="field mt-1" type="number" min="0" max="1" step=".05" value={selectedNode.states[stateEditor]?.style?.opacity ?? 1} onChange={(event) => updateStateStyle({ opacity: Number(event.target.value) })} /></label><button className="tool-button danger w-full" onClick={removeStateOverride}>Remove {stateEditor} override</button></>}<label className="block text-[10px] text-[#747c88]">Initial Play state<select className="select mt-1" value={selectedNode.previewState || ""} onChange={(event) => updateNode(selectedNode.id, { previewState: (event.target.value || undefined) as InteractionVisualState | undefined }, "Set prototype state")}><option value="">Default</option>{Object.keys(selectedNode.states || {}).map((state) => <option key={state} value={state}>{state}</option>)}</select></label></div></div>
             <div className="panel-section"><div className="panel-label">Responsive constraints</div><div className="grid grid-cols-2 gap-2"><StyleSelect label="Horizontal" value={selectedNode.constraints?.horizontal || "left"} options={["left","right","left-right","center","scale"]} onChange={(value) => updateNode(selectedNode.id, { constraints: { ...selectedNode.constraints, horizontal: value as NonNullable<DesignNode["constraints"]>["horizontal"] } }, "Edit constraints")} /><StyleSelect label="Vertical" value={selectedNode.constraints?.vertical || "top"} options={["top","bottom","top-bottom","center","scale"]} onChange={(value) => updateNode(selectedNode.id, { constraints: { ...selectedNode.constraints, vertical: value as NonNullable<DesignNode["constraints"]>["vertical"] } }, "Edit constraints")} /></div></div>
             {selectedNode.type === "frame" && <div className="panel-section"><div className="panel-label">Auto-layout</div><div className="space-y-2"><StyleSelect label="Direction" value={selectedNode.layout?.mode || "absolute"} options={["absolute","horizontal","vertical"]} onChange={(value) => updateNode(selectedNode.id, { layout: { ...selectedNode.layout, mode: value as LayoutMode } }, "Edit layout")} /><label className="block text-[10px] text-[#747c88]">Gap<input className="field mt-1" type="number" value={selectedNode.layout?.gap ?? 0} onChange={(event) => updateNode(selectedNode.id, { layout: { ...selectedNode.layout, mode: selectedNode.layout?.mode || "vertical", gap: Number(event.target.value) } }, "Edit layout gap")} /></label><button className="tool-button w-full" onClick={reflowSelectedFrame}><Group size={12} /> Reflow children</button><button className="tool-button w-full" onClick={detachSelectedFrame}><Ungroup size={12} /> Detach frame</button></div></div>}
             <div className="panel-section"><div className="panel-label">Prototype action</div><select className="select" value={selectedNode.action?.targetPageId || ""} onChange={(event) => setPrototypeTarget(event.target.value)}><option value="">No navigation</option>{project.pages.filter((page) => page.id !== activePage.id).map((page) => <option key={page.id} value={page.id}>Navigate → {page.name}</option>)}</select></div>
@@ -719,7 +746,7 @@ export function StudioWorkspace() {
         </div>
       </aside>
 
-      {playPageId && (() => { const page = project.pages.find((item) => item.id === playPageId) || project.pages[0]; return <div className="fixed inset-0 z-50 grid place-items-center bg-black/75 p-8 backdrop-blur-sm"><div className="max-h-full max-w-full overflow-auto rounded-xl border border-[#303640] bg-[#0c0e12] shadow-2xl"><div className="sticky top-0 z-20 flex h-11 items-center justify-between border-b border-[#292e36] bg-[#101318]/95 px-3"><div className="flex items-center gap-2 text-[11px]"><Play size={12} fill="currentColor" /> Prototype · {page.name}</div><button className="tool-button" onClick={() => setPlayPageId(null)}><X size={13} /></button></div><div className="relative overflow-hidden" style={{ width: page.width, height: page.height, background: page.background, fontFamily: project.tokens.typography.fontFamily }}><StudioNodeLayer allNodes={page.nodes} selectedIds={[]} interactive onAction={(node) => { if (node.action) setPlayPageId(node.action.targetPageId); }} /></div></div></div>; })()}
+      {playPageId && (() => { const page = project.pages.find((item) => item.id === playPageId) || project.pages[0]; return <div className="fixed inset-0 z-50 grid place-items-center bg-black/75 p-8 backdrop-blur-sm"><div className="max-h-full max-w-full overflow-auto rounded-xl border border-[#303640] bg-[#0c0e12] shadow-2xl"><div className="sticky top-0 z-20 flex h-11 items-center justify-between border-b border-[#292e36] bg-[#101318]/95 px-3"><div className="flex items-center gap-2 text-[11px]"><Play size={12} fill="currentColor" /> Prototype · {page.name}</div><button className="tool-button" onClick={() => setPlayPageId(null)}><X size={13} /></button></div><div className="relative overflow-hidden" style={{ width: page.width, height: page.height, background: page.background, fontFamily: project.tokens.typography.fontFamily }}><StudioNodeLayer allNodes={page.nodes} selectedIds={[]} interactive previewMode onAction={(node) => { if (node.action) setPlayPageId(node.action.targetPageId); }} /></div></div></div>; })()}
       {notice && <div className="fixed bottom-4 left-1/2 z-[70] -translate-x-1/2 rounded-lg border border-[#343a45] bg-[#171a20] px-3 py-2 text-[11px] text-[#dce0e6] shadow-xl">{notice}</div>}
     </main>
   );
