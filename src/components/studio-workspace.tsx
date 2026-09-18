@@ -87,6 +87,7 @@ export function StudioWorkspace() {
   const [peers, setPeers] = useState<CollaboratorPresence[]>([]);
   const [collaborationError, setCollaborationError] = useState("");
   const projectId = project?.id;
+  const activePage = project?.pages.find((page) => page.id === project.activePageId) || project?.pages[0];
   const collaborationTransport = useMemo(
     () => projectId ? new BroadcastCollaborationTransport(projectId, projectId, collaborationClientId) : null,
     [collaborationClientId, projectId],
@@ -185,7 +186,6 @@ export function StudioWorkspace() {
     if (result.operation) collaborationTransport?.publishOperations(before, [result.operation]);
   };
 
-  const activePage = project?.pages.find((page) => page.id === project.activePageId) || project?.pages[0];
   const selectedNodes = activePage?.nodes.filter((node) => selectedIds.includes(node.id)) || [];
   const selectedNode = selectedNodes.length === 1 ? selectedNodes[0] : null;
   const auditIssues = useMemo(() => project ? auditProject(project) : [], [project]);
