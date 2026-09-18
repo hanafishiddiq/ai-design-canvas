@@ -95,3 +95,55 @@ export function exportPageReact(project: DesignProject, page: DesignPage): strin
   const mainStyle = jsStyle({ position: "relative", width: `${page.width}px`, height: `${page.height}px`, background: page.background, overflow: "hidden", fontFamily: project.tokens.typography.fontFamily });
   return `import type { CSSProperties } from "react";\n\nexport function ${componentName}() {\n  return (\n    <main data-page-id="${page.id}" style={${mainStyle} as CSSProperties}>\n${nodes}\n    </main>\n  );\n}\n`;
 }
+
+
+function svgNode(page: DesignPage, node: DesignNode): string {
+  const nested = children(page, node).map((child) => svgNode(page, child)).join("");
+  const fill = node.style.background || "transparent";
+  const stroke = node.style.borderColor || "none";
+  const strokeWidth = node.style.borderColor ? node.style.borderWidth || 1 : 0;
+  const radius = node.style.radius || 0;
+  const opacity = node.style.opacity ?? 1;
+  const textFill = node.style.color || "#111111";
+  const fontSize = node.style.fontSize || 14;
+  const fontWeight = node.style.fontWeight || 400;
+  const label = escapeHtml(node.text || (node.type === "frame" || node.type === "card" ? "" : node.name));
+  if (node.type === "text") {
+    return `<text data-node-id="${escapeHtml(node.id)}" x="${node.x}" y="${node.y + fontSize}" fill="${escapeHtml(textFill)}" font-size="${fontSize}" font-weight="${fontWeight}" opacity="${opacity}">${label}</text>`;
+  }
+  if (node.type === "divider") {
+    return `<line data-node-id="${escapeHtml(node.id)}" x1="${node.x}" y1="${node.y + node.height / 2}" x2="${node.x + node.width}" y2="${node.y + node.height / 2}" stroke="${escapeHtml(node.style.borderColor || textFill)}" stroke-width="${Math.max(1, node.style.borderWidth || 1)}" opacity="${opacity}" />`;
+  }
+  const rect = `<rect width="${node.width}" height="${node.height}" rx="${radius}" fill="${escapeHtml(fill)}" stroke="${escapeHtml(stroke)}" stroke-width="${strokeWidth}" opacity="${opacity}" />`;
+  const text = label ? `<text x="${node.style.padding || 10}" y="${Math.min(node.height - 4, (node.style.padding || 10) + fontSize)}" fill="${escapeHtml(textFill)}" font-size="${fontSize}" font-weight="${fontWeight}">${label}</text>` : "";
+  return `<g data-node-id="${escapeHtml(node.id)}" transform="translate(${node.x} ${node.y})">${rect}${text}${nested}</g>`;
+}
+
+export function exportPageSvg(project: DesignProject, page: DesignPage): string {
+  const nodes = roots(page).map((node) => svgNode(page, node)).join("");
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${page.width}" height="${page.height}" viewBox="0 0 ${page.width} ${page.height}" data-page-id="${escapeHtml(page.id)}"><title>${escapeHtml(page.name)}</title><rect width="100%" height="100%" fill="${escapeHtml(page.background || project.tokens.colors.background)}" />${nodes}</svg>`;
+}
+
+export function exportDtcgTokens(project: DesignProject): string {
+  const dimension = (value: number) => ({ "$type": "dimension", "$value": { value, unit: "px" } });
+  const colors = Object.fromEntries(Object.entries(project.tokens.colors).map(([name, value]) => [name, { "$type": "color", "$value": value }]));
+  const spacing = Object.fromEntries(project.tokens.spacing.map((value, index) => ["space-" + index, dimension(value)]));
+  const radius = Object.fromEntries(Object.entries(project.tokens.radius).map(([name, value]) => [name, dimension(value)]));
+  const payload = {
+    "$description": "AI Design Canvas DTCG-compatible design tokens",
+    color: { "$type": "color", ...colors },
+    spacing,
+    radius,
+    typography: {
+      fontFamily: { "$type": "fontFamily", "$value": project.tokens.typography.fontFamily.split(",").map((value) => value.trim()) },
+      displayFamily: { "$type": "fontFamily", "$value": project.tokens.typography.displayFamily.split(",").map((value) => value.trim()) },
+      baseSize: dimension(project.tokens.typography.baseSize),
+      scale: { "$type": "number", "$value": project.tokens.typography.scale },
+    },
+    motion: {
+      duration: { "$type": "duration", "$value": { value: project.tokens.motion.duration, unit: "ms" } },
+      easing: { "$type": "cubicBezier", "$value": project.tokens.motion.easing },
+    },
+  };
+  return JSON.stringify(payload, null, 2);
+}
