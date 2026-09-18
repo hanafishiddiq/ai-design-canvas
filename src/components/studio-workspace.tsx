@@ -11,6 +11,7 @@ import { auditProject, refineProject } from "@/lib/anti-slop";
 import { applyCollaborationEnvelope, CollaborationEventTracker, type CollaboratorPresence } from "@/lib/collaboration";
 import { visibleCanvasPages } from "@/lib/canvas-virtualization";
 import { createCollaborationTransport, loadCollaborationSettings, subscribeCollaborationSettings } from "@/lib/collaboration-settings";
+import { CANVAS_FOCUS_EVENT } from "@/lib/commands";
 import { createComponentDefinition, instantiateComponent } from "@/lib/components";
 import { mergeTokens, parseDesignMd, serializeDesignMd } from "@/lib/design-md";
 import { downloadText, exportPageHtml } from "@/lib/export";
@@ -186,6 +187,17 @@ export function StudioWorkspace() {
     const timer = window.setTimeout(() => setNotice(""), 2600);
     return () => window.clearTimeout(timer);
   }, [notice]);
+
+  useEffect(() => {
+    const onFocus = (event: Event) => {
+      const detail = (event as CustomEvent<{ pageId?: string; nodeId?: string }>).detail;
+      if (!detail?.nodeId) return;
+      setSelectedIds([detail.nodeId]);
+      setTab("inspect");
+    };
+    window.addEventListener(CANVAS_FOCUS_EVENT, onFocus);
+    return () => window.removeEventListener(CANVAS_FOCUS_EVENT, onFocus);
+  }, []);
 
   const commit = (operation: DesignOperation, label: string) => {
     if (!history) return;
