@@ -8,7 +8,8 @@ import {
   Trash2, Undo2, Ungroup, WandSparkles, X,
 } from "lucide-react";
 import { auditProject, refineProject } from "@/lib/anti-slop";
-import { applyCollaborationEnvelope, BroadcastCollaborationTransport, CollaborationEventTracker, type CollaboratorPresence } from "@/lib/collaboration";
+import { applyCollaborationEnvelope, CollaborationEventTracker, type CollaboratorPresence } from "@/lib/collaboration";
+import { createCollaborationTransport, loadCollaborationSettings, subscribeCollaborationSettings } from "@/lib/collaboration-settings";
 import { createComponentDefinition, instantiateComponent } from "@/lib/components";
 import { mergeTokens, parseDesignMd, serializeDesignMd } from "@/lib/design-md";
 import { downloadText, exportPageHtml } from "@/lib/export";
@@ -84,13 +85,14 @@ export function StudioWorkspace() {
   const [notice, setNotice] = useState("");
   const [generating, setGenerating] = useState(false);
   const [collaborationClientId] = useState(() => `client_${Math.random().toString(36).slice(2, 10)}`);
+  const [collaborationSettings, setCollaborationSettings] = useState(loadCollaborationSettings);
   const [peers, setPeers] = useState<CollaboratorPresence[]>([]);
   const [collaborationError, setCollaborationError] = useState("");
   const projectId = project?.id;
   const activePage = project?.pages.find((page) => page.id === project.activePageId) || project?.pages[0];
   const collaborationTransport = useMemo(
-    () => projectId ? new BroadcastCollaborationTransport(projectId, projectId, collaborationClientId) : null,
-    [collaborationClientId, projectId],
+    () => projectId ? createCollaborationTransport(collaborationSettings, projectId, collaborationClientId) : null,
+    [collaborationClientId, collaborationSettings, projectId],
   );
   const collaborationTracker = useMemo(() => new CollaborationEventTracker(), [projectId]);
 
@@ -115,6 +117,7 @@ export function StudioWorkspace() {
   }, [provider, repository]);
 
   useEffect(() => { if (project) void repository.save(project); }, [project, repository]);
+  useEffect(() => subscribeCollaborationSettings((next) => setCollaborationSettings(next)), []);
 
   useEffect(() => {
     if (!history) return;
@@ -123,8 +126,9 @@ export function StudioWorkspace() {
       if (incoming.updatedAt === current.updatedAt) return;
       const synced = history.sync({ type: "project.replace", project: incoming });
       setProject(synced);
+      void collaborationTransport?.publishSnapshot?.(synced);
     });
-  }, [history, repository]);
+  }, [collaborationTransport, history, repository]);
 
   useEffect(() => {
     if (!collaborationTransport || !history) return;
@@ -141,6 +145,17 @@ export function StudioWorkspace() {
         }
       },
       onPresence: setPeers,
+      onSnapshot: (snapshot) => {
+        try {
+          const current = history.current();
+          if (snapshot.id !== current.id || snapshot.updatedAt <= current.updatedAt) return;
+          const synced = history.sync({ type: "project.replace", project: snapshot });
+          setProject(synced);
+          setCollaborationError("");
+        } catch (error) {
+          setCollaborationError(error instanceof Error ? error.message : String(error));
+        }
+      },
       onError: (error) => setCollaborationError(error.message),
     });
   }, [collaborationTracker, collaborationTransport, history]);
@@ -148,11 +163,11 @@ export function StudioWorkspace() {
   useEffect(() => {
     if (!collaborationTransport) return;
     collaborationTransport.updatePresence({
-      name: "Designer",
+      name: collaborationSettings.displayName.trim() || "Designer",
       pageId: activePage?.id,
       nodeIds: selectedIds,
     });
-  }, [activePage?.id, collaborationTransport, selectedIds]);
+  }, [activePage?.id, collaborationSettings.displayName, collaborationTransport, selectedIds]);
 
   useEffect(() => {
     if (!notice) return;
@@ -166,6 +181,7 @@ export function StudioWorkspace() {
     const next = history.execute(operation, label);
     setProject(next);
     collaborationTransport?.publishOperations(before, [operation]);
+    void collaborationTransport?.publishSnapshot?.(next);
   };
 
   const replaceProject = (next: DesignProject, label: string) => commit({ type: "project.replace", project: next }, label);
@@ -176,6 +192,7 @@ export function StudioWorkspace() {
     setProject(result.project);
     setSelectedIds([]);
     if (result.operation) collaborationTransport?.publishOperations(before, [result.operation]);
+    void collaborationTransport?.publishSnapshot?.(result.project);
   };
   const redo = () => {
     if (!history?.canRedo()) return;
@@ -184,6 +201,7 @@ export function StudioWorkspace() {
     setProject(result.project);
     setSelectedIds([]);
     if (result.operation) collaborationTransport?.publishOperations(before, [result.operation]);
+    void collaborationTransport?.publishSnapshot?.(result.project);
   };
 
   const selectedNodes = activePage?.nodes.filter((node) => selectedIds.includes(node.id)) || [];

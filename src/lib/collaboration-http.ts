@@ -46,6 +46,12 @@ export class HttpSseCollaborationTransport implements CollaborationTransport {
       try { handlers.onPresence?.(JSON.parse((event as MessageEvent).data) as CollaboratorPresence[]); }
       catch (error) { handlers.onError?.(error instanceof Error ? error : new Error(String(error))); }
     });
+    events.addEventListener("snapshot", (event) => {
+      try {
+        const body = JSON.parse((event as MessageEvent).data) as { project?: DesignProject };
+        if (body.project) handlers.onSnapshot?.(body.project);
+      } catch (error) { handlers.onError?.(error instanceof Error ? error : new Error(String(error))); }
+    });
     events.onerror = () => handlers.onError?.(new Error("Collaboration relay event stream disconnected."));
     return () => { events.close(); if (this.events === events) this.events = null; };
   }

@@ -76,6 +76,8 @@ const server = createServer(async (req, res) => {
       res.write(": connected\n\n");
       room.clients.set(clientId, res);
       sendEvent(res, "presence", presenceList(room));
+      const snapshot = await loadSnapshot(room);
+      if (snapshot) sendEvent(res, "snapshot", { project: snapshot });
       const heartbeat = setInterval(() => res.write(": ping\n\n"), 20_000);
       req.on("close", () => {
         clearInterval(heartbeat);

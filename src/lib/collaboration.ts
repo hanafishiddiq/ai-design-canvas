@@ -24,6 +24,7 @@ export interface CollaborationEnvelope {
 export interface CollaborationHandlers {
   onOperations?: (envelope: CollaborationEnvelope) => void;
   onPresence?: (peers: CollaboratorPresence[]) => void;
+  onSnapshot?: (project: DesignProject) => void;
   onError?: (error: Error) => void;
 }
 
@@ -33,6 +34,8 @@ export interface CollaborationTransport {
   connect(handlers: CollaborationHandlers): () => void;
   publishOperations(project: DesignProject, operations: DesignOperation[]): void;
   updatePresence(presence: Omit<CollaboratorPresence, "clientId" | "lastSeenAt">): void;
+  publishSnapshot?(project: DesignProject): void | Promise<void>;
+  fetchSnapshot?(): Promise<DesignProject | null>;
 }
 
 export function applyCollaborationEnvelope(project: DesignProject, envelope: CollaborationEnvelope): DesignProject {
