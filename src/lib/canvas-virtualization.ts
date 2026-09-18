@@ -6,11 +6,12 @@ export interface WorldBounds { left:number; top:number; right:number; bottom:num
 export function canvasWorldBounds(pan:{x:number;y:number},zoom:number,viewport:CanvasViewport,marginPx=420):WorldBounds{
   const safeZoom=Math.max(.05,zoom);
   const margin=marginPx/safeZoom;
+  const normalizeZero=(value:number)=>Object.is(value,-0)?0:value;
   return {
-    left:(-pan.x)/safeZoom-margin,
-    top:(-pan.y)/safeZoom-margin,
-    right:(viewport.width-pan.x)/safeZoom+margin,
-    bottom:(viewport.height-pan.y)/safeZoom+margin,
+    left:normalizeZero((-pan.x)/safeZoom-margin),
+    top:normalizeZero((-pan.y)/safeZoom-margin),
+    right:normalizeZero((viewport.width-pan.x)/safeZoom+margin),
+    bottom:normalizeZero((viewport.height-pan.y)/safeZoom+margin),
   };
 }
 export function pageIntersectsBounds(page:DesignPage,bounds:WorldBounds){
