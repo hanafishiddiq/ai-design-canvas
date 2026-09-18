@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, ChevronDown, ChevronUp, Plug, RefreshCw, Send, Terminal, XCircle } from "lucide-react";
+import { useMemo, useState } from "react";
+import { CheckCircle2, ChevronDown, Plug, RefreshCw, Send, Terminal, XCircle } from "lucide-react";
 import { inferOpenPencilCapabilities, OpenPencilMcpClient, type OpenPencilMcpStatus, type OpenPencilSyncReport } from "@/lib/openpencil-mcp";
 import { LocalProjectRepository } from "@/lib/storage";
 
@@ -11,17 +11,15 @@ const DEFAULT_ENDPOINT = "http://127.0.0.1:3100/mcp";
 export function OpenPencilConnector() {
   const repository = useMemo(() => new LocalProjectRepository(), []);
   const [open, setOpen] = useState(false);
-  const [endpoint, setEndpoint] = useState(DEFAULT_ENDPOINT);
+  const [endpoint, setEndpoint] = useState(() => {
+    if (typeof window === "undefined") return DEFAULT_ENDPOINT;
+    return localStorage.getItem(ENDPOINT_KEY) || DEFAULT_ENDPOINT;
+  });
   const [status, setStatus] = useState<OpenPencilMcpStatus | null>(null);
   const [report, setReport] = useState<OpenPencilSyncReport | null>(null);
   const [checking, setChecking] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    const saved = localStorage.getItem(ENDPOINT_KEY);
-    if (saved) setEndpoint(saved);
-  }, []);
 
   const client = useMemo(() => new OpenPencilMcpClient(endpoint), [endpoint]);
   const capabilities = useMemo(() => status?.verified ? inferOpenPencilCapabilities(status.tools) : null, [status]);
