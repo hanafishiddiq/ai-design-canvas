@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Cloud, Radio, RefreshCw, Save, Users, X } from "lucide-react";
-import { defaultCollaborationSettings, loadCollaborationSettings, saveCollaborationSettings, subscribeCollaborationSettings, type CollaborationSettings } from "@/lib/collaboration-settings";
+import { loadCollaborationSettings, saveCollaborationSettings, subscribeCollaborationSettings, type CollaborationSettings } from "@/lib/collaboration-settings";
 
 export function CollaborationPanel() {
   const [open, setOpen] = useState(false);

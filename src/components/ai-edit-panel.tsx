@@ -23,6 +23,18 @@ export function AiEditPanel() {
 
   const page = project?.pages.find((item) => item.id === project.activePageId) || project?.pages[0];
 
+  const refresh = async () => {
+    const [saved, statusResponse] = await Promise.all([repository.load(), fetch("/api/ai/status", { cache: "no-store" })]);
+    setProject(saved);
+    if (statusResponse.ok) {
+      const body = await statusResponse.json() as { providers?: { openai?: { configured?: boolean; editModel?: string; model?: string } } };
+      const openai = body.providers?.openai;
+      setAvailable(Boolean(openai?.configured));
+      setModel(openai?.editModel || openai?.model || "");
+      setStatusReason(openai?.configured ? "" : "OPENAI_API_KEY is not configured on this deployment.");
+    } else { setAvailable(false); setStatusReason(`Provider status failed: ${statusResponse.status}`); }
+  };
+
   useEffect(() => {
     const onSkill = (event: Event) => {
       const detail = (event as CustomEvent<{ instruction?: string; scope?: "selection" | "page" }>).detail;
@@ -36,17 +48,6 @@ export function AiEditPanel() {
     return () => window.removeEventListener(EXTENSION_SKILL_EVENT, onSkill);
   });
 
-  const refresh = async () => {
-    const [saved, statusResponse] = await Promise.all([repository.load(), fetch("/api/ai/status", { cache: "no-store" })]);
-    setProject(saved);
-    if (statusResponse.ok) {
-      const body = await statusResponse.json() as { providers?: { openai?: { configured?: boolean; editModel?: string; model?: string } } };
-      const openai = body.providers?.openai;
-      setAvailable(Boolean(openai?.configured));
-      setModel(openai?.editModel || openai?.model || "");
-      setStatusReason(openai?.configured ? "" : "OPENAI_API_KEY is not configured on this deployment.");
-    } else { setAvailable(false); setStatusReason(`Provider status failed: ${statusResponse.status}`); }
-  };
 
   const show = async () => { setOpen(true); setProposal(null); setError(""); await refresh(); };
   const toggle = (id: string) => setSelectedIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);

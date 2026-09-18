@@ -31,7 +31,6 @@ const record = (value: unknown): Json => value && typeof value === "object" && !
 const array = (value: unknown): unknown[] => Array.isArray(value) ? value : [];
 const textValue = (value: unknown, fallback = "") => typeof value === "string" ? value : fallback;
 const numberValue = (value: unknown, fallback = 0) => typeof value === "number" && Number.isFinite(value) ? value : fallback;
-const boolValue = (value: unknown, fallback = true) => typeof value === "boolean" ? value : fallback;
 const slug = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "screen";
 
 function sizing(value: unknown, fallback: number, losses: OpenPencilLoss[], sourceId: string) {
