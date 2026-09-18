@@ -1,10 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
-import type { DesignNode } from "@/lib/types";
+import { resolveNodePresentation } from "@/lib/interaction-states";
+import type { DesignNode, InteractionVisualState, NodeStyle } from "@/lib/types";
 
-function nodeStyle(node: DesignNode, selected: boolean): CSSProperties {
-  const style = node.style;
+function nodeStyle(node: DesignNode, selected: boolean, style: NodeStyle = node.style): CSSProperties {
   return {
     position: "absolute",
     left: node.x,
@@ -39,28 +40,41 @@ export interface StudioNodeProps {
   allNodes: DesignNode[];
   selectedIds: string[];
   interactive?: boolean;
+  previewMode?: boolean;
   onSelect?: (node: DesignNode, additive: boolean) => void;
   onDragStart?: (event: ReactPointerEvent<HTMLDivElement>, node: DesignNode) => void;
   onResizeStart?: (event: ReactPointerEvent<HTMLDivElement>, node: DesignNode) => void;
   onAction?: (node: DesignNode) => void;
 }
 
-export function StudioNode({ node, allNodes, selectedIds, interactive = true, onSelect, onDragStart, onResizeStart, onAction }: StudioNodeProps) {
+export function StudioNode({ node, allNodes, selectedIds, interactive = true, previewMode = false, onSelect, onDragStart, onResizeStart, onAction }: StudioNodeProps) {
   const selected = selectedIds.includes(node.id);
+  const initialState = node.previewState || "hover";
+  const [visualState, setVisualState] = useState<InteractionVisualState | "default">(previewMode && node.previewState ? node.previewState : "default");
+  const presentation = resolveNodePresentation(node, previewMode ? visualState : "default");
+  const lockedState = visualState === "disabled" || node.previewState === "disabled";
   const children = (node.children || []).map((id) => allNodes.find((item) => item.id === id)).filter((item): item is DesignNode => !!item);
   return (
     <div
       data-node-id={node.id}
-      style={nodeStyle(node, selected)}
+      style={nodeStyle(node, selected, presentation.style)}
       role={interactive ? "button" : undefined}
       tabIndex={interactive ? 0 : undefined}
       aria-label={interactive ? node.name + ", " + node.type : undefined}
+      onPointerEnter={previewMode && !lockedState && node.states?.hover ? () => setVisualState("hover") : undefined}
+      onPointerLeave={previewMode && !lockedState ? () => setVisualState(node.previewState || "default") : undefined}
       onPointerDown={interactive ? (event) => {
         event.stopPropagation();
+        if (previewMode) {
+          if (!lockedState && node.states?.pressed) setVisualState("pressed");
+          return;
+        }
         onSelect?.(node, event.shiftKey || event.metaKey || event.ctrlKey);
         onDragStart?.(event, node);
       } : undefined}
-      onDoubleClick={interactive && node.action ? (event) => { event.stopPropagation(); onAction?.(node); } : undefined}
+      onPointerUp={previewMode && !lockedState ? () => setVisualState(node.states?.hover ? "hover" : node.previewState || "default") : undefined}
+      onClick={previewMode && node.action && !lockedState ? (event) => { event.stopPropagation(); onAction?.(node); } : undefined}
+      onDoubleClick={!previewMode && interactive && node.action ? (event) => { event.stopPropagation(); onAction?.(node); } : undefined}
       onKeyDown={interactive ? (event) => {
         if (event.key !== "Enter" && event.key !== " ") return;
         event.preventDefault();
@@ -71,7 +85,7 @@ export function StudioNode({ node, allNodes, selectedIds, interactive = true, on
       title={`${node.name}${node.component ? ` · ${node.component.componentId}` : ""}`}
     >
       {node.type === "frame" && <div className="pointer-events-none absolute -top-5 left-0 text-[9px] text-[#717b8b]">{node.name} · {node.layout?.mode || "absolute"}</div>}
-      {node.type !== "frame" && (node.text || (node.type === "card" ? "" : node.name))}
+      {node.type !== "frame" && (presentation.text || (node.type === "card" ? "" : node.name))}
       {children.map((child) => (
         <StudioNode
           key={child.id}
@@ -79,6 +93,7 @@ export function StudioNode({ node, allNodes, selectedIds, interactive = true, on
           allNodes={allNodes}
           selectedIds={selectedIds}
           interactive={interactive}
+          previewMode={previewMode}
           onSelect={onSelect}
           onDragStart={onDragStart}
           onResizeStart={onResizeStart}
