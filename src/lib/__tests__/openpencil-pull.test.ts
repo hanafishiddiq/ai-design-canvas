@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { mergeOpenPencilPull, openPencilVariablesToCollections, penRootsToPages } from "../openpencil-pull";
+import { mergeOpenPencilPull, openPencilVariablesToCollections, penRootsToPages, type OpenPencilLoss } from "../openpencil-pull";
 import { defaultDirection } from "../foundations";
 import { planProject } from "../planner";
 
 describe("OpenPencil loss-aware pull", () => {
   it("converts screen frames and preserves semantic hierarchy", () => {
-    const losses = [];
+    const losses: OpenPencilLoss[] = [];
     const pages = penRootsToPages({ id: "p1", name: "Page 1" }, [{
       type: "frame", id: "screen", name: "Dashboard", screen: "/dashboard", width: 720, height: 460,
       fill: [{ type: "solid", color: "#101010" }],
@@ -23,7 +23,7 @@ describe("OpenPencil loss-aware pull", () => {
   });
 
   it("imports scalar variables and merges a pulled candidate without invalid flows", () => {
-    const losses = [];
+    const losses: OpenPencilLoss[] = [];
     const collections = openPencilVariablesToCollections({
       "colors/brand": { type: "color", value: "#ff3366" },
       "spacing/md": { type: "number", value: 16 },
