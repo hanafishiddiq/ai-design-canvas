@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { allowsCollaborationAccess, verifyCollaborationToken } from "./collaboration-auth.mjs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { join } from "node:path";
@@ -6,6 +7,7 @@ import { join } from "node:path";
 const HOST = process.env.COLLAB_HOST || "0.0.0.0";
 const PORT = Number(process.env.COLLAB_PORT || 8787);
 const TOKEN = process.env.COLLAB_TOKEN || "";
+const SECRET = process.env.COLLAB_SECRET || "";
 const ALLOW_ORIGIN = process.env.COLLAB_ALLOW_ORIGIN || "*";
 const DATA_DIR = process.env.COLLAB_DATA_DIR || "";
 const MAX_BODY_BYTES = Number(process.env.COLLAB_MAX_BODY_BYTES || 12_000_000);
@@ -24,7 +26,22 @@ const getRoom = (roomId, projectId) => {
   if (!rooms.has(key)) rooms.set(key, { key, roomId, projectId, clients: new Map(), presences: new Map(), snapshot: null });
   return rooms.get(key);
 };
-const authorized = (req, url) => !TOKEN || req.headers.authorization === `Bearer ${TOKEN}` || url.searchParams.get("token") === TOKEN;
+const presentedToken = (req, url) => {
+  const auth = String(req.headers.authorization || "");
+  if (auth.startsWith("Bearer ")) return auth.slice(7);
+  return url.searchParams.get("token") || "";
+};
+const authenticate = (req, url) => {
+  const token = presentedToken(req, url);
+  if (!TOKEN && !SECRET) return { role: "admin", insecure: true };
+  if (TOKEN && token === TOKEN) return { role: "admin", static: true };
+  return SECRET ? verifyCollaborationToken(SECRET, token) : null;
+};
+const requireAccess = (res, access, roomId, projectId, role = "viewer") => {
+  if (allowsCollaborationAccess(access, roomId, projectId, role)) return true;
+  json(res, 403, { error: "forbidden", requiredRole: role });
+  return false;
+};
 const json = (res, status, body) => { res.writeHead(status, { ...headers, "content-type": "application/json; charset=utf-8" }); res.end(JSON.stringify(body)); };
 const sendEvent = (res, name, value) => res.write(`event: ${name}\ndata: ${JSON.stringify(value)}\n\n`);
 const presenceList = (room) => [...room.presences.values()].sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
@@ -61,7 +78,8 @@ async function loadSnapshot(room) {
 const server = createServer(async (req, res) => {
   const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
   if (req.method === "OPTIONS") { res.writeHead(204, headers); return res.end(); }
-  if (!authorized(req, url)) return json(res, 401, { error: "unauthorized" });
+  const access = authenticate(req, url);
+  if (!access) return json(res, 401, { error: "unauthorized" });
 
   try {
     if (req.method === "GET" && url.pathname === "/health") return json(res, 200, { ok: true, service: "ai-design-canvas-collaboration-relay", rooms: rooms.size });
@@ -71,6 +89,7 @@ const server = createServer(async (req, res) => {
       const projectId = url.searchParams.get("projectId") || "";
       const clientId = url.searchParams.get("clientId") || "";
       if (!roomId || !projectId || !clientId) return json(res, 400, { error: "roomId, projectId and clientId are required" });
+      if (!requireAccess(res, access, roomId, projectId, "viewer")) return;
       const room = getRoom(roomId, projectId);
       res.writeHead(200, { ...headers, "content-type": "text/event-stream; charset=utf-8", connection: "keep-alive", "x-accel-buffering": "no" });
       res.write(": connected\n\n");
@@ -92,6 +111,7 @@ const server = createServer(async (req, res) => {
       const roomId = url.searchParams.get("roomId") || "";
       const projectId = url.searchParams.get("projectId") || "";
       if (!roomId || !projectId) return json(res, 400, { error: "roomId and projectId are required" });
+      if (!requireAccess(res, access, roomId, projectId, "viewer")) return;
       const snapshot = await loadSnapshot(getRoom(roomId, projectId));
       return snapshot ? json(res, 200, { project: snapshot }) : json(res, 404, { error: "snapshot_not_found" });
     }
@@ -99,6 +119,7 @@ const server = createServer(async (req, res) => {
     if (req.method === "POST" && url.pathname === "/operations") {
       const envelope = await readBody(req);
       if (!envelope.roomId || !envelope.projectId || !envelope.clientId || !Array.isArray(envelope.operations)) return json(res, 400, { error: "invalid_envelope" });
+      if (!requireAccess(res, access, String(envelope.roomId), String(envelope.projectId), "editor")) return;
       if (envelope.operations.length > 200) return json(res, 400, { error: "operation_limit_exceeded" });
       const room = getRoom(String(envelope.roomId), String(envelope.projectId));
       broadcast(room, "operations", envelope, String(envelope.clientId));
@@ -108,6 +129,7 @@ const server = createServer(async (req, res) => {
     if (req.method === "POST" && url.pathname === "/presence") {
       const body = await readBody(req);
       if (!body.roomId || !body.projectId || !body.clientId || !body.presence) return json(res, 400, { error: "invalid_presence" });
+      if (!requireAccess(res, access, String(body.roomId), String(body.projectId), "viewer")) return;
       const room = getRoom(String(body.roomId), String(body.projectId));
       room.presences.set(String(body.clientId), body.presence);
       broadcastPresence(room);
@@ -117,6 +139,7 @@ const server = createServer(async (req, res) => {
     if (req.method === "POST" && url.pathname === "/snapshot") {
       const body = await readBody(req);
       if (!body.roomId || !body.projectId || !body.project || body.project.id !== body.projectId) return json(res, 400, { error: "invalid_snapshot" });
+      if (!requireAccess(res, access, String(body.roomId), String(body.projectId), "editor")) return;
       const room = getRoom(String(body.roomId), String(body.projectId));
       room.snapshot = body.project;
       await persistSnapshot(room);
@@ -133,6 +156,7 @@ const server = createServer(async (req, res) => {
 
 server.listen(PORT, HOST, () => {
   console.log(`AI Design Canvas collaboration relay listening on http://${HOST}:${PORT}`);
-  if (!TOKEN) console.warn("COLLAB_TOKEN is not set; run behind a trusted network or configure a token before public exposure.");
+  if (!TOKEN && !SECRET) console.warn("No COLLAB_TOKEN or COLLAB_SECRET is set; run behind a trusted network or configure authentication before public exposure.");
+  if (SECRET) console.log("Signed viewer/editor collaboration tokens are enabled.");
   if (DATA_DIR) console.log(`Snapshot persistence: ${DATA_DIR}`);
 });

@@ -80,3 +80,28 @@ A managed cloud deployment may replace the relay with Supabase, Redis/WebSocket,
 6. export/local ownership preserved.
 
 This keeps collaboration provider-neutral and self-hostable.
+
+
+## Scoped viewer/editor tokens
+
+For public or semi-trusted deployments, prefer `COLLAB_SECRET` over a single shared editor token.
+
+Generate an editor token:
+
+```bash
+COLLAB_SECRET="<strong-secret>" npm run collab:token -- --project <project-id> --role editor --ttl-hours 24
+```
+
+Generate a read/review token:
+
+```bash
+COLLAB_SECRET="<strong-secret>" npm run collab:token -- --project <project-id> --role viewer --ttl-hours 24
+```
+
+Tokens are HMAC-SHA256 signed and may be scoped to a project, optional room, role, name and expiration. The relay enforces:
+
+- **viewer**: event stream, presence and snapshot reads;
+- **editor**: viewer rights plus operations and snapshot writes;
+- **admin/static token**: unrestricted relay access.
+
+The web UI stores the collaboration token in `sessionStorage`, not persistent `localStorage`.
