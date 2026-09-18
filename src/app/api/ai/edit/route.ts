@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AI_EDIT_SCHEMA, validateAiEditProposal } from "@/lib/ai-edit";
 import type { DesignNode } from "@/lib/types";
+import { guardRequest } from "@/lib/request-guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,6 +20,8 @@ function extractOutputText(body: Record<string, unknown>) {
 }
 
 export async function POST(request: NextRequest) {
+  const denied = guardRequest(request, { scope: "ai-edit", maxRequests: 30, windowMs: 10 * 60_000, maxBodyBytes: 250_000, tokenEnv: "ADC_API_TOKEN", allowOriginsEnv: "ADC_API_ALLOW_ORIGINS", requireTokenWithoutOrigin: true });
+  if (denied) return denied;
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "OpenAI editing is not configured on this deployment." }, { status: 503 });
   const contentLength = Number(request.headers.get("content-length") || 0);

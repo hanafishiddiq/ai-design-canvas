@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SEMANTIC_REFERENCE_SCHEMA, validateSemanticReferencePlan } from "@/lib/vision";
+import { guardRequest } from "@/lib/request-guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,6 +22,8 @@ function outputText(body: Record<string, unknown>): string | null {
 }
 
 export async function POST(request: NextRequest) {
+  const denied = guardRequest(request, { scope: "ai-vision", maxRequests: 18, windowMs: 10 * 60_000, maxBodyBytes: 3_500_000, tokenEnv: "ADC_API_TOKEN", allowOriginsEnv: "ADC_API_ALLOW_ORIGINS", requireTokenWithoutOrigin: true });
+  if (denied) return denied;
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "OpenAI vision is not configured on this deployment." }, { status: 503 });
 

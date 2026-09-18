@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { VISUAL_QA_AI_SCHEMA, validateVisualQaAiResult } from "@/lib/visual-qa-ai";
 import type { DesignNode } from "@/lib/types";
+import { guardRequest } from "@/lib/request-guard";
 
 export const runtime="nodejs";export const dynamic="force-dynamic";
 function outputText(body:Record<string,unknown>){
@@ -11,6 +12,8 @@ function outputText(body:Record<string,unknown>){
 const image=(value:unknown)=>typeof value==="string"&&value.startsWith("data:image/")&&value.length<=5_500_000?value:null;
 
 export async function POST(request:NextRequest){
+  const denied=guardRequest(request,{scope:"ai-visual-qa",maxRequests:12,windowMs:10*60_000,maxBodyBytes:11_500_000,tokenEnv:"ADC_API_TOKEN",allowOriginsEnv:"ADC_API_ALLOW_ORIGINS",requireTokenWithoutOrigin:true});
+  if(denied)return denied;
   const apiKey=process.env.OPENAI_API_KEY;if(!apiKey)return NextResponse.json({error:"OpenAI visual QA is not configured."},{status:503});
   const length=Number(request.headers.get("content-length")||0);if(length>11_500_000)return NextResponse.json({error:"Visual QA request is too large."},{status:413});
   let body:{designImage?:unknown;implementationImage?:unknown;page?:unknown;designMd?:unknown;localReport?:unknown};

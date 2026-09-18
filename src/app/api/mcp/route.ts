@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callHeadlessTool, headlessToolDefinitions } from "@/lib/headless-tools";
+import { corsHeaders, guardRequest, originAllowed } from "@/lib/request-guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,11 +30,15 @@ export async function GET() {
   }, { headers: { "cache-control": "no-store" } });
 }
 
-export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: { "access-control-allow-methods": "GET, POST, OPTIONS", "access-control-allow-headers": "content-type", "access-control-max-age": "86400" } });
+export async function OPTIONS(request: NextRequest) {
+  const origin = request.headers.get("origin");
+  if (origin && !originAllowed(request, "ADC_MCP_ALLOW_ORIGINS")) return new NextResponse(null, { status: 403 });
+  return new NextResponse(null, { status: 204, headers: corsHeaders(request, "ADC_MCP_ALLOW_ORIGINS") });
 }
 
 export async function POST(request: NextRequest) {
+  const denied = guardRequest(request, { scope: "mcp", maxRequests: 180, windowMs: 60_000, maxBodyBytes: MAX_BODY_BYTES, tokenEnv: "ADC_MCP_TOKEN", allowOriginsEnv: "ADC_MCP_ALLOW_ORIGINS", requireTokenWithoutOrigin: true });
+  if (denied) return denied;
   const length = Number(request.headers.get("content-length") || 0);
   if (length > MAX_BODY_BYTES) return rpcError(null, -32600, "Request body exceeds the 2 MB stateless MCP limit.", 413);
 
