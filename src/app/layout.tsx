@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { AiEditPanel } from "@/components/ai-edit-panel";
 import { CodeExportPanel } from "@/components/code-export-panel";
 import { CollaborationPanel } from "@/components/collaboration-panel";
+import { CloudProjectsPanel } from "@/components/cloud-projects-panel";
 import { OpenPencilConnector } from "@/components/openpencil-connector";
 import { ReferenceLibrary } from "@/components/reference-library";
 import { ResponsivePreview } from "@/components/responsive-preview";
@@ -15,5 +16,5 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body>{children}<CollaborationPanel /><ReviewPanel /><RoundtripPanel /><AiEditPanel /><ReferenceLibrary /><CodeExportPanel /><ResponsivePreview /><OpenPencilConnector /></body></html>;
+  return <html lang="en"><body>{children}<CloudProjectsPanel /><CollaborationPanel /><ReviewPanel /><RoundtripPanel /><AiEditPanel /><ReferenceLibrary /><CodeExportPanel /><ResponsivePreview /><OpenPencilConnector /></body></html>;
 }
