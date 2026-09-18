@@ -81,6 +81,12 @@ export interface NodeStyle {
   align?: "left" | "center" | "right";
 }
 
+export type InteractionVisualState = "hover" | "pressed" | "disabled" | "loading" | "error" | "success";
+export interface NodeStateOverride {
+  style?: Partial<NodeStyle>;
+  text?: string;
+}
+
 export interface ComponentBinding {
   componentId: string;
   instanceId: string;
@@ -103,6 +109,8 @@ export interface DesignNode {
   layout?: AutoLayoutSpec;
   constraints?: ResponsiveConstraints;
   component?: ComponentBinding;
+  states?: Partial<Record<InteractionVisualState, NodeStateOverride>>;
+  previewState?: InteractionVisualState;
   action?: { type: "navigate"; targetPageId: string };
 }
 
