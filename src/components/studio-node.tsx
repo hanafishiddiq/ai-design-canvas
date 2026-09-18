@@ -49,7 +49,6 @@ export interface StudioNodeProps {
 
 export function StudioNode({ node, allNodes, selectedIds, interactive = true, previewMode = false, onSelect, onDragStart, onResizeStart, onAction }: StudioNodeProps) {
   const selected = selectedIds.includes(node.id);
-  const initialState = node.previewState || "hover";
   const [visualState, setVisualState] = useState<InteractionVisualState | "default">(previewMode && node.previewState ? node.previewState : "default");
   const presentation = resolveNodePresentation(node, previewMode ? visualState : "default");
   const lockedState = visualState === "disabled" || node.previewState === "disabled";
