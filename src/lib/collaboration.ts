@@ -38,11 +38,38 @@ export interface CollaborationTransport {
 export function applyCollaborationEnvelope(project: DesignProject, envelope: CollaborationEnvelope): DesignProject {
   if (envelope.projectId !== project.id) throw new Error(`Envelope project ${envelope.projectId} does not match ${project.id}.`);
   if (envelope.operations.length > 200) throw new Error("Collaboration envelope exceeds the 200-operation safety limit.");
+  if (envelope.baseUpdatedAt !== project.updatedAt && envelope.operations.some((operation) => operation.type === "project.replace")) {
+    throw new Error("Stale destructive collaboration update rejected. Refresh from the latest snapshot before replacing the whole project.");
+  }
   let next = structuredClone(project);
   for (const operation of envelope.operations) next = applyOperation(next, operation).project;
   const validation = validateProject(next);
   if (!validation.valid) throw new Error(`Collaborative operations produced invalid project: ${validation.errors.join(" ")}`);
   return next;
+}
+
+/** Dedupe and monotonic-sequence guard for reconnects/replayed SSE events. */
+export class CollaborationEventTracker {
+  private seen = new Set<string>();
+  private lastSequence = new Map<string, number>();
+
+  accept(envelope: CollaborationEnvelope) {
+    if (this.seen.has(envelope.id)) return false;
+    const previous = this.lastSequence.get(envelope.clientId);
+    if (previous !== undefined && envelope.sequence <= previous) return false;
+    this.seen.add(envelope.id);
+    this.lastSequence.set(envelope.clientId, envelope.sequence);
+    if (this.seen.size > 2000) {
+      const oldest = this.seen.values().next().value as string | undefined;
+      if (oldest) this.seen.delete(oldest);
+    }
+    return true;
+  }
+
+  reset() {
+    this.seen.clear();
+    this.lastSequence.clear();
+  }
 }
 
 /**

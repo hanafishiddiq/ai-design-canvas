@@ -8,6 +8,7 @@ import {
   Trash2, Undo2, Ungroup, WandSparkles, X,
 } from "lucide-react";
 import { auditProject, refineProject } from "@/lib/anti-slop";
+import { applyCollaborationEnvelope, BroadcastCollaborationTransport, CollaborationEventTracker, type CollaboratorPresence } from "@/lib/collaboration";
 import { createComponentDefinition, instantiateComponent } from "@/lib/components";
 import { mergeTokens, parseDesignMd, serializeDesignMd } from "@/lib/design-md";
 import { downloadText, exportPageHtml } from "@/lib/export";
@@ -82,6 +83,15 @@ export function StudioWorkspace() {
   const [playPageId, setPlayPageId] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
   const [generating, setGenerating] = useState(false);
+  const [collaborationClientId] = useState(() => `client_${Math.random().toString(36).slice(2, 10)}`);
+  const [peers, setPeers] = useState<CollaboratorPresence[]>([]);
+  const [collaborationError, setCollaborationError] = useState("");
+  const projectId = project?.id;
+  const collaborationTransport = useMemo(
+    () => projectId ? new BroadcastCollaborationTransport(projectId, projectId, collaborationClientId) : null,
+    [collaborationClientId, projectId],
+  );
+  const collaborationTracker = useMemo(() => new CollaborationEventTracker(), [projectId]);
 
   const resetProject = (next: DesignProject) => {
     setHistory(new OperationHistory(next, 150));
@@ -104,6 +114,45 @@ export function StudioWorkspace() {
   }, [provider, repository]);
 
   useEffect(() => { if (project) void repository.save(project); }, [project, repository]);
+
+  useEffect(() => {
+    if (!history) return;
+    return repository.subscribe((incoming) => {
+      const current = history.current();
+      if (incoming.updatedAt === current.updatedAt) return;
+      const synced = history.sync({ type: "project.replace", project: incoming });
+      setProject(synced);
+    });
+  }, [history, repository]);
+
+  useEffect(() => {
+    if (!collaborationTransport || !history) return;
+    return collaborationTransport.connect({
+      onOperations: (envelope) => {
+        if (!collaborationTracker.accept(envelope)) return;
+        try {
+          const next = applyCollaborationEnvelope(history.current(), envelope);
+          const synced = history.sync({ type: "project.replace", project: next });
+          setProject(synced);
+          setCollaborationError("");
+        } catch (error) {
+          setCollaborationError(error instanceof Error ? error.message : String(error));
+        }
+      },
+      onPresence: setPeers,
+      onError: (error) => setCollaborationError(error.message),
+    });
+  }, [collaborationTracker, collaborationTransport, history]);
+
+  useEffect(() => {
+    if (!collaborationTransport) return;
+    collaborationTransport.updatePresence({
+      name: "Designer",
+      pageId: activePage?.id,
+      nodeIds: selectedIds,
+    });
+  }, [activePage?.id, collaborationTransport, selectedIds]);
+
   useEffect(() => {
     if (!notice) return;
     const timer = window.setTimeout(() => setNotice(""), 2600);
@@ -112,19 +161,28 @@ export function StudioWorkspace() {
 
   const commit = (operation: DesignOperation, label: string) => {
     if (!history) return;
-    setProject(history.execute(operation, label));
+    const before = history.current();
+    const next = history.execute(operation, label);
+    setProject(next);
+    collaborationTransport?.publishOperations(before, [operation]);
   };
 
   const replaceProject = (next: DesignProject, label: string) => commit({ type: "project.replace", project: next }, label);
   const undo = () => {
     if (!history?.canUndo()) return;
-    setProject(history.undo());
+    const before = history.current();
+    const result = history.undoDetailed();
+    setProject(result.project);
     setSelectedIds([]);
+    if (result.operation) collaborationTransport?.publishOperations(before, [result.operation]);
   };
   const redo = () => {
     if (!history?.canRedo()) return;
-    setProject(history.redo());
+    const before = history.current();
+    const result = history.redoDetailed();
+    setProject(result.project);
     setSelectedIds([]);
+    if (result.operation) collaborationTransport?.publishOperations(before, [result.operation]);
   };
 
   const activePage = project?.pages.find((page) => page.id === project.activePageId) || project?.pages[0];
@@ -429,7 +487,7 @@ export function StudioWorkspace() {
     downloadText(`${slug(project.name)}.openpencil-bridge.json`, await adapter.export("openpencil-bridge"), "application/json");
   };
 
-  if (!project || !activePage) return <main className="grid h-screen place-items-center bg-[#090a0c] text-[#9299a6]"><div className="flex items-center gap-2"><Sparkles size={15} /> Initializing schema v2 studio…</div></main>;
+  if (!project || !activePage) return <main className="grid h-screen place-items-center bg-[#090a0c] text-[#9299a6]"><div className="flex items-center gap-2"><Sparkles size={15} /> Initializing schema v5 studio…</div></main>;
 
   const canUndo = history?.canUndo() || false;
   const canRedo = history?.canRedo() || false;
@@ -439,7 +497,7 @@ export function StudioWorkspace() {
       <aside className="flex w-[250px] shrink-0 flex-col border-r border-[#242830] bg-[#0d0f13]">
         <div className="flex h-12 items-center gap-2 border-b border-[#242830] px-3">
           <div className="grid size-7 place-items-center rounded-md border border-[#343a45] bg-[#151820]"><Box size={14} /></div>
-          <div className="min-w-0 flex-1"><div className="truncate text-[12px] font-semibold">AI Design Canvas</div><div className="text-[10px] text-[#737b88]">Structured Studio · schema v2</div></div>
+          <div className="min-w-0 flex-1"><div className="truncate text-[12px] font-semibold">AI Design Canvas</div><div className="text-[10px] text-[#737b88]">Structured Studio · schema v5</div></div>
           <span className="rounded border border-[#2b3039] px-1.5 py-0.5 text-[9px] text-[#858d99]">P1</span>
         </div>
         <div className="panel-section space-y-2">

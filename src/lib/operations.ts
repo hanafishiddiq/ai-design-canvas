@@ -165,23 +165,29 @@ export class OperationHistory {
     return this.current();
   }
 
-  undo() {
+  undoDetailed(): { project: DesignProject; operation: DesignOperation | null; label: string | null } {
     const transaction = this.past.pop();
-    if (!transaction) return this.current();
-    const applied = applyOperation(this.project, transaction.inverse);
+    if (!transaction) return { project: this.current(), operation: null, label: null };
+    const operation = structuredClone(transaction.inverse);
+    const applied = applyOperation(this.project, operation);
     this.project = applied.project;
     this.future.push(transaction);
-    return this.current();
+    return { project: this.current(), operation, label: transaction.label };
   }
 
-  redo() {
+  redoDetailed(): { project: DesignProject; operation: DesignOperation | null; label: string | null } {
     const transaction = this.future.pop();
-    if (!transaction) return this.current();
-    const applied = applyOperation(this.project, transaction.forward);
+    if (!transaction) return { project: this.current(), operation: null, label: null };
+    const operation = structuredClone(transaction.forward);
+    const applied = applyOperation(this.project, operation);
     this.project = applied.project;
     this.past.push(transaction);
-    return this.current();
+    return { project: this.current(), operation, label: transaction.label };
   }
+
+  undo() { return this.undoDetailed().project; }
+
+  redo() { return this.redoDetailed().project; }
 
   reset(project: DesignProject) {
     this.project = structuredClone(project);
