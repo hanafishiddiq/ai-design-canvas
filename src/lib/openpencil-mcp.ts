@@ -1,4 +1,5 @@
 import { projectToOpenPencilConversion } from "./openpencil-convert";
+import { mergeOpenPencilPull, openPencilVariablesToCollections, penRootsToPages, reusablePenNodeToComponent, type OpenPencilPullResult } from "./openpencil-pull";
 import type { DesignProject } from "./types";
 
 export interface McpToolDefinition {
@@ -144,6 +145,62 @@ export class OpenPencilMcpClient {
     if (!toolNames.has("save_document")) warnings.push("OpenPencil save_document is unavailable; headless persistence depends on its backing file mode.");
     return { endpoint: this.endpoint, verified: true, designMd, variables, components, screens, lint, conversionStatus, warnings };
   }
+  /** Read the live/headless OpenPencil document and prepare an explicit loss-aware candidate project. */
+  async pullProject(baseProject: DesignProject): Promise<OpenPencilPullResult> {
+    const status = await this.status();
+    if (!status.reachable) throw new Error(status.error || "OpenPencil MCP is not reachable.");
+    if (!status.verified) throw new Error("Endpoint did not identify as openpencil-mcp.");
+    const names = new Set(status.tools.map((tool) => tool.name));
+    if (!names.has("list_pages") || !names.has("read_nodes")) throw new Error("OpenPencil pull requires list_pages and read_nodes.");
+
+    const warnings: string[] = [];
+    const losses: import("./openpencil-pull").OpenPencilLoss[] = [];
+    const pageInfo = await this.callTool<{ pageCount?: number; activePageIndex?: number; pages?: Array<{ id?: string; name?: string }> }>("list_pages", {});
+    const physicalPages = Array.isArray(pageInfo.pages) ? pageInfo.pages : [];
+    const importedPages = [];
+    let rawVariables: unknown = {};
+    let rawThemes: unknown = {};
+
+    for (const [index, page] of physicalPages.entries()) {
+      const pageId = String(page.id || index);
+      const content = await this.callTool<{ nodes?: unknown[]; variables?: unknown; themes?: unknown }>("read_nodes", { pageId, depth: -1, includeVariables: index === 0 });
+      if (index === 0) { rawVariables = content.variables || {}; rawThemes = content.themes || {}; }
+      importedPages.push(...penRootsToPages({ id: pageId, name: String(page.name || `Page ${index + 1}`) }, Array.isArray(content.nodes) ? content.nodes : [], baseProject.tokens.colors.background, losses));
+    }
+
+    let designMd: string | undefined;
+    if (names.has("get_design_md")) {
+      const result = await this.callTool<{ hasDesignMd?: string | boolean; markdown?: string }>("get_design_md", {});
+      if (typeof result.markdown === "string" && result.markdown.trim()) designMd = result.markdown;
+    } else warnings.push("get_design_md is unavailable; existing DESIGN.md was retained.");
+
+    if (names.has("get_variables")) {
+      const result = await this.callTool<{ variables?: unknown; themes?: unknown }>("get_variables", {});
+      const parseMaybe = (value: unknown) => {
+        if (typeof value !== "string") return value;
+        try { return JSON.parse(value); } catch { return {}; }
+      };
+      rawVariables = parseMaybe(result.variables);
+      rawThemes = parseMaybe(result.themes);
+    }
+    const collections = openPencilVariablesToCollections(rawVariables, rawThemes, losses);
+
+    const components = [];
+    if (names.has("batch_get")) {
+      try {
+        const reusable = await this.callTool<{ nodes?: unknown[] }>("batch_get", { patterns: [{ reusable: true }], readDepth: -1 });
+        for (const node of reusable.nodes || []) {
+          const component = reusablePenNodeToComponent(node, losses);
+          if (component) components.push(component);
+        }
+      } catch (error) {
+        warnings.push(`Reusable component pull failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    } else warnings.push("batch_get is unavailable; reusable OpenPencil component masters were not imported.");
+
+    return mergeOpenPencilPull(baseProject, importedPages, components, collections, designMd, losses, warnings);
+  }
+
 }
 
 export function inferOpenPencilCapabilities(tools: McpToolDefinition[]) {

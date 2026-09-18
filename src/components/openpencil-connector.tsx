@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CheckCircle2, ChevronDown, Plug, RefreshCw, Send, Terminal, XCircle } from "lucide-react";
+import { CheckCircle2, ChevronDown, Download, Plug, RefreshCw, Send, Terminal, XCircle } from "lucide-react";
 import { inferOpenPencilCapabilities, OpenPencilMcpClient, type OpenPencilMcpStatus, type OpenPencilSyncReport } from "@/lib/openpencil-mcp";
+import type { OpenPencilPullResult } from "@/lib/openpencil-pull";
 import { LocalProjectRepository } from "@/lib/storage";
 
 const ENDPOINT_KEY = "ai-design-canvas.openpencil.endpoint";
@@ -19,6 +20,8 @@ export function OpenPencilConnector() {
   const [report, setReport] = useState<OpenPencilSyncReport | null>(null);
   const [checking, setChecking] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [pulling, setPulling] = useState(false);
+  const [pullResult, setPullResult] = useState<OpenPencilPullResult | null>(null);
   const [error, setError] = useState("");
 
   const client = useMemo(() => new OpenPencilMcpClient(endpoint), [endpoint]);
@@ -38,6 +41,23 @@ export function OpenPencilConnector() {
       setStatus(null);
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally { setChecking(false); }
+  };
+
+  const pull = async () => {
+    setPulling(true); setError(""); setPullResult(null);
+    try {
+      const project = await repository.load();
+      if (!project) throw new Error("No project is available to reconcile yet.");
+      setPullResult(await client.pullProject(project));
+    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    finally { setPulling(false); }
+  };
+
+  const applyPull = async () => {
+    if (!pullResult) return;
+    await repository.save(pullResult.project);
+    setPullResult(null);
+    window.location.reload();
   };
 
   const sync = async () => {
@@ -74,9 +94,10 @@ export function OpenPencilConnector() {
               <input className="field font-mono text-[10px]" value={endpoint} onChange={(event) => setEndpoint(event.target.value)} />
             </div>
 
-            <div className="flex gap-2">
-              <button className="tool-button flex-1" onClick={check} disabled={checking}><RefreshCw size={12} className={checking ? "animate-spin" : ""} /> {checking ? "Checking…" : "Check"}</button>
-              <button className="tool-button primary flex-1" onClick={sync} disabled={syncing || !status?.verified}><Send size={12} /> {syncing ? "Syncing…" : "Sync project"}</button>
+            <div className="grid grid-cols-3 gap-2">
+              <button className="tool-button" onClick={check} disabled={checking}><RefreshCw size={12} className={checking ? "animate-spin" : ""} /> Check</button>
+              <button className="tool-button primary" onClick={sync} disabled={syncing || !status?.verified}><Send size={12} /> {syncing ? "Push…" : "Push"}</button>
+              <button className="tool-button" onClick={pull} disabled={pulling || !status?.verified}><Download size={12} /> {pulling ? "Pulling…" : "Pull"}</button>
             </div>
 
             {status?.verified && capabilities && (
@@ -93,6 +114,14 @@ export function OpenPencilConnector() {
                 {report.warnings.length > 0 && <div className="mt-2 border-t border-[#25304a] pt-2 text-[9px] leading-4 text-[#8e99b6]">{report.warnings.join(" ")}</div>}
               </div>
             )}
+
+            {pullResult && <div className="rounded-lg border border-[#4a4027] bg-[#1b1710] p-2.5 text-[9px] leading-4 text-[#c7b98e]">
+              <div className="font-semibold text-[#e0d3a8]">Pull preview · not applied</div>
+              <div className="mt-1">Pages {pullResult.report.pages} · nodes {pullResult.report.nodes} · components {pullResult.report.components} · variables {pullResult.report.variables}</div>
+              <div className="mt-1">{pullResult.report.losses.length} loss-report item(s) · {pullResult.report.warnings.length} warning(s)</div>
+              {pullResult.report.losses.length > 0 && <div className="mt-2 max-h-24 overflow-auto border-t border-[#453b25] pt-2">{pullResult.report.losses.slice(0, 8).map((loss, index) => <div key={index}>• {loss.message}</div>)}</div>}
+              <button className="tool-button primary mt-2 w-full" onClick={applyPull}>Apply pulled candidate</button>
+            </div>}
 
             {error && <div className="rounded-lg border border-[#4d292e] bg-[#211215] p-2.5 text-[10px] leading-4 text-[#ee8d98]"><div className="mb-1 flex items-center gap-1.5 font-semibold"><XCircle size={11} /> Connection error</div>{error}</div>}
 
