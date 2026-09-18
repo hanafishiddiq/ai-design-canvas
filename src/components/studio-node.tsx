@@ -52,12 +52,22 @@ export function StudioNode({ node, allNodes, selectedIds, interactive = true, on
     <div
       data-node-id={node.id}
       style={nodeStyle(node, selected)}
+      role={interactive ? "button" : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      aria-label={interactive ? node.name + ", " + node.type : undefined}
       onPointerDown={interactive ? (event) => {
         event.stopPropagation();
         onSelect?.(node, event.shiftKey || event.metaKey || event.ctrlKey);
         onDragStart?.(event, node);
       } : undefined}
       onDoubleClick={interactive && node.action ? (event) => { event.stopPropagation(); onAction?.(node); } : undefined}
+      onKeyDown={interactive ? (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        event.stopPropagation();
+        onSelect?.(node, false);
+        if (event.key === "Enter" && node.action) onAction?.(node);
+      } : undefined}
       title={`${node.name}${node.component ? ` · ${node.component.componentId}` : ""}`}
     >
       {node.type === "frame" && <div className="pointer-events-none absolute -top-5 left-0 text-[9px] text-[#717b8b]">{node.name} · {node.layout?.mode || "absolute"}</div>}
