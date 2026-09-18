@@ -1,0 +1,29 @@
+{
+  "schema": "ai-design-canvas/extension/v1",
+  "id": "example.editorial-saas",
+  "name": "Editorial SaaS Kit",
+  "version": "1.0.0",
+  "description": "Example declarative extension with one foundation and two reusable AI skills.",
+  "author": "AI Design Canvas",
+  "foundations": [{
+    "id": "editorial-warm",
+    "name": "Editorial Warm",
+    "description": "Attio-like editorial rhythm with warm accent and restrained radius.",
+    "baseFoundation": "attio",
+    "direction": { "treatment": "editorial", "density": "balanced", "radius": "soft", "motion": "subtle", "theme": "light", "accent": "#b85c3b" },
+    "guidance": "Prefer typography and composition over card chrome. Keep surfaces warm-neutral and interactions quiet."
+  }],
+  "skills": [{
+    "id": "tighten-hierarchy",
+    "name": "Tighten hierarchy",
+    "description": "Reduce redundant containers and make the primary information hierarchy clearer.",
+    "scope": "page",
+    "instruction": "Tighten the information hierarchy. Remove redundant visual enclosure, normalize spacing, preserve content and interaction intent, and make one clear primary heading. Keep changes localized and compatible with the current design tokens."
+  },{
+    "id": "refine-selection",
+    "name": "Refine selected UI",
+    "description": "Polish selected controls without redesigning the page.",
+    "scope": "selection",
+    "instruction": "Refine only the explicitly selected nodes: improve alignment, spacing, typography and control sizing while preserving their semantics, parent relationships, and current design-system direction."
+  }]
+}

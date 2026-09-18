@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BrainCircuit, Check, RefreshCw, Sparkles, X, XCircle } from "lucide-react";
 import { proposalToOperations, type AiEditProposal } from "@/lib/ai-edit";
+import { EXTENSION_SKILL_EVENT } from "@/lib/extensions";
 import { applyOperation } from "@/lib/operations";
 import { LocalProjectRepository } from "@/lib/storage";
 import type { DesignProject } from "@/lib/types";
@@ -21,6 +22,19 @@ export function AiEditPanel() {
   const [error, setError] = useState("");
 
   const page = project?.pages.find((item) => item.id === project.activePageId) || project?.pages[0];
+
+  useEffect(() => {
+    const onSkill = (event: Event) => {
+      const detail = (event as CustomEvent<{ instruction?: string; scope?: "selection" | "page" }>).detail;
+      if (!detail?.instruction) return;
+      setInstruction(detail.instruction);
+      if (detail.scope === "page") setSelectedIds([]);
+      setProposal(null); setError(""); setOpen(true);
+      void refresh();
+    };
+    window.addEventListener(EXTENSION_SKILL_EVENT, onSkill);
+    return () => window.removeEventListener(EXTENSION_SKILL_EVENT, onSkill);
+  });
 
   const refresh = async () => {
     const [saved, statusResponse] = await Promise.all([repository.load(), fetch("/api/ai/status", { cache: "no-store" })]);
