@@ -14,6 +14,7 @@ import { createCollaborationTransport, loadCollaborationSettings, subscribeColla
 import { CANVAS_FOCUS_EVENT } from "@/lib/commands";
 import { createComponentDefinition, instantiateComponent } from "@/lib/components";
 import { mergeTokens, parseDesignMd, serializeDesignMd } from "@/lib/design-md";
+import { absoluteNodeRect, alignNodes, distributeNodes, intersects, parseNodeClipboard, remapPastedNodes, serializeNodeClipboard, type AlignMode, type DistributeMode } from "@/lib/editor-geometry";
 import { downloadText, exportPageHtml } from "@/lib/export";
 import { defaultDirection, foundationAccent, foundations, generateTokens } from "@/lib/foundations";
 import { applyAutoLayout, layoutChildren } from "@/lib/layout";
@@ -31,6 +32,7 @@ const slug = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, "-").
 const makeId = (prefix: string) => `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 
 type InspectorTab = "layers" | "inspect" | "design" | "contract" | "audit" | "flow";
+type MarqueeState = { startX: number; startY: number; x: number; y: number; width: number; height: number };
 type DragState = {
   kind: "page" | "node" | "resize";
   pageId: string;
@@ -75,6 +77,8 @@ export function StudioWorkspace() {
   const contractFileRef = useRef<HTMLInputElement>(null);
   const dragRef = useRef<DragState | null>(null);
   const panRef = useRef<{ startX: number; startY: number; x: number; y: number } | null>(null);
+  const marqueeRef = useRef<{ startX: number; startY: number } | null>(null);
+  const clipboardRef = useRef("");
 
   const [project, setProject] = useState<DesignProject | null>(null);
   const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
@@ -84,6 +88,7 @@ export function StudioWorkspace() {
   const [zoom, setZoom] = useState(0.58);
   const [pan, setPan] = useState({ x: 50, y: 40 });
   const [canvasViewport, setCanvasViewport] = useState({ width: 1200, height: 800 });
+  const [marquee, setMarquee] = useState<MarqueeState | null>(null);
   const [playPageId, setPlayPageId] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
   const [generating, setGenerating] = useState(false);
@@ -359,20 +364,58 @@ export function StudioWorkspace() {
     else if (drag.nodeId) commit({ type: "node.update", pageId: drag.pageId, nodeId: drag.nodeId, changes: { x: drag.lastX, y: drag.lastY } }, "Move node");
   };
 
+  const pointerWorld = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    return {
+      x: ((event.clientX - (rect?.left || 0)) - pan.x) / zoom,
+      y: ((event.clientY - (rect?.top || 0)) - pan.y) / zoom,
+    };
+  };
   const canvasPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.currentTarget !== event.target) return;
+    const target = event.target as HTMLElement | null;
+    if (target?.closest("[data-node-id]")) return;
     event.currentTarget.setPointerCapture(event.pointerId);
+    if (event.shiftKey) {
+      const point = pointerWorld(event);
+      marqueeRef.current = { startX: point.x, startY: point.y };
+      setMarquee({ startX: point.x, startY: point.y, x: point.x, y: point.y, width: 0, height: 0 });
+      return;
+    }
     panRef.current = { startX: event.clientX, startY: event.clientY, x: pan.x, y: pan.y };
     setSelectedIds([]);
   };
   const canvasPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (dragRef.current) { moveDrag(event); return; }
+    if (marqueeRef.current) {
+      const point = pointerWorld(event);
+      const start = marqueeRef.current;
+      setMarquee({
+        startX: start.startX, startY: start.startY,
+        x: Math.min(start.startX, point.x), y: Math.min(start.startY, point.y),
+        width: Math.abs(point.x - start.startX), height: Math.abs(point.y - start.startY),
+      });
+      return;
+    }
     const drag = panRef.current;
     if (!drag) return;
     setPan({ x: drag.x + event.clientX - drag.startX, y: drag.y + event.clientY - drag.startY });
   };
   const canvasPointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (dragRef.current) { endDrag(event); return; }
+    if (marqueeRef.current) {
+      if (marquee && activePage) {
+        const ids = activePage.nodes.filter((node) => {
+          const rect = absoluteNodeRect(node, activePage.nodes);
+          return intersects({ x: rect.x + activePage.x, y: rect.y + activePage.y, width: rect.width, height: rect.height }, marquee);
+        }).map((node) => node.id);
+        setSelectedIds(ids);
+        if (ids.length) setTab("inspect");
+      }
+      marqueeRef.current = null;
+      setMarquee(null);
+      try { event.currentTarget.releasePointerCapture(event.pointerId); } catch { /* noop */ }
+      return;
+    }
     if (panRef.current) {
       try { event.currentTarget.releasePointerCapture(event.pointerId); } catch { /* noop */ }
       panRef.current = null;
@@ -405,6 +448,49 @@ export function StudioWorkspace() {
     commit({ type: "batch", operations: selectedIds.map((nodeId) => ({ type: "node.remove" as const, pageId: activePage.id, nodeId })) }, "Delete selection");
     setSelectedIds([]);
   };
+
+  const copySelected = async () => {
+    if (!activePage || !selectedIds.length) return;
+    const source = serializeNodeClipboard(activePage.nodes, selectedIds);
+    clipboardRef.current = source;
+    try { await navigator.clipboard.writeText(source); } catch { /* local fallback stays available */ }
+    setNotice("Copied design selection");
+  };
+
+  const pasteSelected = async () => {
+    if (!activePage) return;
+    let source = clipboardRef.current;
+    try {
+      const candidate = await navigator.clipboard.readText();
+      if (candidate.includes("ai-design-canvas/clipboard/v1")) source = candidate;
+    } catch { /* clipboard read permission is optional */ }
+    if (!source) { setNotice("No AI Design Canvas selection in clipboard"); return; }
+    try {
+      const payload = parseNodeClipboard(source);
+      const pasted = remapPastedNodes(payload.nodes, makeId, 20);
+      if (!pasted.nodes.length) return;
+      commit({ type: "batch", operations: pasted.nodes.map((node) => ({ type: "node.insert" as const, pageId: activePage.id, node })) }, "Paste selection");
+      setSelectedIds(pasted.rootIds);
+      setNotice("Pasted design selection");
+    } catch { setNotice("Clipboard does not contain a compatible design selection"); }
+  };
+
+  const alignSelected = (mode: AlignMode) => {
+    if (!activePage || selectedNodes.length < 2) return;
+    try {
+      const patches = alignNodes(selectedNodes, mode);
+      commit({ type: "batch", operations: patches.map((patch) => ({ type: "node.update" as const, pageId: activePage.id, nodeId: patch.nodeId, changes: { ...(patch.x !== undefined ? { x: patch.x } : {}), ...(patch.y !== undefined ? { y: patch.y } : {}) } })) }, "Align selection");
+    } catch (error) { setNotice(error instanceof Error ? error.message : String(error)); }
+  };
+
+  const distributeSelected = (mode: DistributeMode) => {
+    if (!activePage || selectedNodes.length < 3) return;
+    try {
+      const patches = distributeNodes(selectedNodes, mode);
+      commit({ type: "batch", operations: patches.map((patch) => ({ type: "node.update" as const, pageId: activePage.id, nodeId: patch.nodeId, changes: { ...(patch.x !== undefined ? { x: patch.x } : {}), ...(patch.y !== undefined ? { y: patch.y } : {}) } })) }, "Distribute selection");
+    } catch (error) { setNotice(error instanceof Error ? error.message : String(error)); }
+  };
+
 
   const createAutoLayoutFrame = (mode: Exclude<LayoutMode, "absolute">) => {
     if (!activePage || selectedNodes.length < 2) { setNotice("Select at least two nodes"); return; }
@@ -520,12 +606,14 @@ export function StudioWorkspace() {
       if (mod && event.key.toLowerCase() === "z") { event.preventDefault(); if (event.shiftKey) redo(); else undo(); return; }
       if (mod && event.key.toLowerCase() === "y") { event.preventDefault(); redo(); return; }
       if (typing) return;
+      if (mod && event.key.toLowerCase() === "c") { event.preventDefault(); void copySelected(); return; }
+      if (mod && event.key.toLowerCase() === "v") { event.preventDefault(); void pasteSelected(); return; }
       if (mod && event.key.toLowerCase() === "d") { event.preventDefault(); duplicateSelected(); return; }
       if (event.key === "Delete" || event.key === "Backspace") { event.preventDefault(); deleteSelected(); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [deleteSelected, duplicateSelected, redo, undo]);
+  }, [copySelected, deleteSelected, duplicateSelected, pasteSelected, redo, undo]);
 
   const exportOpenPencil = async () => {
     if (!project) return;
@@ -575,7 +663,11 @@ export function StudioWorkspace() {
             <button className="tool-button" disabled={selectedIds.length < 2} onClick={() => createAutoLayoutFrame("horizontal")} title="Wrap selection in horizontal auto-layout"><Group size={13} /> Row</button>
             <button className="tool-button" disabled={selectedIds.length < 2} onClick={() => createAutoLayoutFrame("vertical")}><Group size={13} /> Stack</button>
             <button className="tool-button" disabled={!selectedIds.length} onClick={createComponent}><Component size={13} /> Component</button>
-            <button className="tool-button" disabled={!selectedIds.length} onClick={duplicateSelected}><Copy size={13} /></button>
+            <select aria-label="Align selection" className="select !h-[30px] !w-[92px] text-[10px]" value="" disabled={selectedIds.length < 2} onChange={(event) => { if (event.target.value) alignSelected(event.target.value as AlignMode); }}><option value="">Align…</option><option value="left">Left</option><option value="center-x">Center X</option><option value="right">Right</option><option value="top">Top</option><option value="center-y">Center Y</option><option value="bottom">Bottom</option></select>
+            <select aria-label="Distribute selection" className="select !h-[30px] !w-[98px] text-[10px]" value="" disabled={selectedIds.length < 3} onChange={(event) => { if (event.target.value) distributeSelected(event.target.value as DistributeMode); }}><option value="">Distribute…</option><option value="horizontal">Horizontal</option><option value="vertical">Vertical</option></select>
+            <button className="tool-button" disabled={!selectedIds.length} onClick={() => void copySelected()} title="Copy (⌘/Ctrl C)"><Copy size={13} /> Copy</button>
+            <button className="tool-button" onClick={() => void pasteSelected()} title="Paste (⌘/Ctrl V)">Paste</button>
+            <button className="tool-button" disabled={!selectedIds.length} onClick={duplicateSelected}><Copy size={13} /> Duplicate</button>
             <button className="tool-button danger" disabled={!selectedIds.length} onClick={deleteSelected}><Trash2 size={13} /></button>
           </div>
           <div className="flex items-center gap-1.5">
@@ -590,6 +682,7 @@ export function StudioWorkspace() {
           <div ref={canvasRef} className="canvas-grid absolute inset-0 overflow-hidden touch-none" onPointerDown={canvasPointerDown} onPointerMove={canvasPointerMove} onPointerUp={canvasPointerUp} onWheel={canvasWheel}>
             <div className="absolute left-0 top-0 h-[2200px] w-[3200px]" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: "0 0" }}>
               <svg className="pointer-events-none absolute left-0 top-0 h-[2200px] w-[3200px] overflow-visible">{project.flows.filter((flow) => visiblePageIds.has(flow.fromPageId) || visiblePageIds.has(flow.toPageId)).map((flow) => { const from = project.pages.find((page) => page.id === flow.fromPageId); const to = project.pages.find((page) => page.id === flow.toPageId); if (!from || !to) return null; const x1 = from.x + from.width; const y1 = from.y + from.height / 2; const x2 = to.x; const y2 = to.y + to.height / 2; const cx = (x1 + x2) / 2; return <path key={flow.id} d={`M ${x1} ${y1} C ${cx} ${y1}, ${cx} ${y2}, ${x2} ${y2}`} fill="none" stroke="#59647a" strokeWidth="2" strokeDasharray="6 6" />; })}</svg>
+              {marquee && <div className="pointer-events-none absolute z-[60] border border-[#8491e6] bg-[#7180da]/10" style={{ left: marquee.x, top: marquee.y, width: marquee.width, height: marquee.height }} />}
               {visiblePages.map((page) => <div key={page.id} className="absolute" style={{ left: page.x, top: page.y, width: page.width, height: page.height }}>
                 <div className={`absolute -top-7 left-0 flex h-6 items-center gap-2 rounded px-1.5 text-[11px] ${page.id === activePage.id ? "bg-[#252b37] text-white" : "text-[#8c94a0]"}`} onPointerDown={(event) => startPageDrag(event, page)} onPointerMove={moveDrag} onPointerUp={endDrag}><span className="size-1.5 rounded-full" style={{ background: page.id === activePage.id ? project.tokens.colors.accent : "#515866" }} />{page.name}<span className="text-[9px] text-[#646c78]">{page.route}</span></div>
                 <div className={`relative overflow-visible shadow-[0_20px_80px_rgba(0,0,0,.34)] ${page.id === activePage.id ? "ring-2 ring-[#6774b8]" : "ring-1 ring-[#323844]"}`} style={{ width: page.width, height: page.height, background: page.background, fontFamily: project.tokens.typography.fontFamily }} onPointerDown={() => selectPage(page.id)}>
@@ -598,7 +691,7 @@ export function StudioWorkspace() {
               </div>)}
             </div>
           </div>
-          <div className="pointer-events-none absolute bottom-3 left-3 flex items-center gap-3 rounded-md border border-[#252b34] bg-[#0d1015]/90 px-2.5 py-1.5 text-[10px] text-[#727a87] shadow-lg backdrop-blur"><span>Shift-click multi-select · drag to move · ⌘/Ctrl-Z undo</span><span className="text-[#59616d]">render {visiblePages.length}/{project.pages.length} screens</span><span className={collaborationError ? "text-[#e28a94]" : peers.length ? "text-[#70cf99]" : "text-[#59616d]"}>{collaborationError ? "collaboration issue" : `${peers.length} peer${peers.length === 1 ? "" : "s"}`}</span></div>
+          <div className="pointer-events-none absolute bottom-3 left-3 flex items-center gap-3 rounded-md border border-[#252b34] bg-[#0d1015]/90 px-2.5 py-1.5 text-[10px] text-[#727a87] shadow-lg backdrop-blur"><span>Shift-click multi-select · Shift-drag marquee · ⌘/Ctrl-C/V copy/paste · ⌘/Ctrl-Z undo</span><span className="text-[#59616d]">render {visiblePages.length}/{project.pages.length} screens</span><span className={collaborationError ? "text-[#e28a94]" : peers.length ? "text-[#70cf99]" : "text-[#59616d]"}>{collaborationError ? "collaboration issue" : `${peers.length} peer${peers.length === 1 ? "" : "s"}`}</span></div>
         </div>
       </section>
 
