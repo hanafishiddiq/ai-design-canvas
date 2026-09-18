@@ -42,7 +42,6 @@ export function CommandPalette() {
 
   const items = useMemo(() => project ? filterCommandItems(projectCommandItems(project), query) : [], [project, query]);
 
-  useEffect(() => { setActive(0); }, [query]);
 
   const choose = async (item: CommandItem) => {
     if (!project || !item.pageId) return;
@@ -71,14 +70,14 @@ export function CommandPalette() {
   };
 
   if (!open) {
-    return <button aria-label="Open command palette" title="Command palette (Ctrl/Cmd K)" className="fixed bottom-24 right-[235px] z-[86] flex h-9 items-center gap-2 rounded-lg border border-[#343a45] bg-[#14171d]/95 px-3 text-[11px] text-[#d8dce3] shadow-xl backdrop-blur hover:bg-[#1b1f27]" onClick={() => setOpen(true)}><Search size={13} /> Search <kbd>⌘K</kbd></button>;
+    return <button aria-label="Open command palette" title="Command palette (Ctrl/Cmd K)" className="fixed bottom-24 right-[235px] z-[86] flex h-9 items-center gap-2 rounded-lg border border-[#343a45] bg-[#14171d]/95 px-3 text-[11px] text-[#d8dce3] shadow-xl backdrop-blur hover:bg-[#1b1f27]" onClick={() => { setActive(0); setOpen(true); }}><Search size={13} /> Search <kbd>⌘K</kbd></button>;
   }
 
   return <div className="fixed inset-0 z-[95] flex justify-center bg-black/55 px-4 pt-[12vh] backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Command palette" onMouseDown={(event) => { if (event.currentTarget === event.target) setOpen(false); }}>
     <div className="h-fit max-h-[70vh] w-[min(680px,100%)] overflow-hidden rounded-xl border border-[#3a404b] bg-[#0d1015] shadow-2xl">
       <div className="flex h-12 items-center gap-2 border-b border-[#292e36] px-3">
         <Search size={15} className="text-[#8995dc]" />
-        <input ref={inputRef} aria-label="Search screens and design nodes" className="h-full min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-[#555e69]" placeholder="Search screens, nodes, components…" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={onInputKey} />
+        <input ref={inputRef} aria-label="Search screens and design nodes" className="h-full min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-[#555e69]" placeholder="Search screens, nodes, components…" value={query} onChange={(event) => { setQuery(event.target.value); setActive(0); }} onKeyDown={onInputKey} />
         <button aria-label="Close command palette" className="tool-button" onClick={() => setOpen(false)}><X size={12} /></button>
       </div>
       <div className="max-h-[calc(70vh-48px)] overflow-auto p-2" role="listbox" aria-label="Search results">
