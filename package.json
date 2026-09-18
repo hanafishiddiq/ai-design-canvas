@@ -11,7 +11,8 @@
     "test": "vitest run",
     "collab:relay": "node scripts/collaboration-relay.mjs",
     "collab:token": "node scripts/collaboration-token.mjs",
-    "cloud:server": "node scripts/cloud-service.mjs"
+    "cloud:server": "node scripts/cloud-service.mjs",
+    "repo:scan": "node scripts/repository-scan.mjs"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.3.3",

@@ -5,6 +5,7 @@ import { CollaborationPanel } from "@/components/collaboration-panel";
 import { CloudProjectsPanel } from "@/components/cloud-projects-panel";
 import { OpenPencilConnector } from "@/components/openpencil-connector";
 import { ReferenceLibrary } from "@/components/reference-library";
+import { RepositoryPanel } from "@/components/repository-panel";
 import { ResponsivePreview } from "@/components/responsive-preview";
 import { ReviewPanel } from "@/components/review-panel";
 import { RoundtripPanel } from "@/components/roundtrip-panel";
@@ -16,5 +17,5 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body>{children}<CloudProjectsPanel /><CollaborationPanel /><ReviewPanel /><RoundtripPanel /><AiEditPanel /><ReferenceLibrary /><CodeExportPanel /><ResponsivePreview /><OpenPencilConnector /></body></html>;
+  return <html lang="en"><body>{children}<RepositoryPanel /><CloudProjectsPanel /><CollaborationPanel /><ReviewPanel /><RoundtripPanel /><AiEditPanel /><ReferenceLibrary /><CodeExportPanel /><ResponsivePreview /><OpenPencilConnector /></body></html>;
 }
