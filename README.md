@@ -9,22 +9,30 @@ The current web editor is intentionally Vercel-friendly: core design workflows w
 ## What already works
 
 - Prompt → coherent multi-screen product plan with deterministic local generation.
-- Curated design foundations inspired by the public visual characteristics of Linear, Stripe, Vercel, Attio and Raycast.
-- Style mixer: foundation, treatment, density, radius, motion, theme and accent.
-- Versioned, migratable JSON design document with pages, nested nodes, variables, components, references and prototype flows.
-- Reversible design-operation model with undo/redo and local recovery checkpoints.
-- Semantic auto-layout primitives (horizontal/vertical, fixed/hug/fill) and responsive constraints.
-- First-class `DESIGN.md` generation, editing, parsing/import and export.
-- Structured Studio canvas with pan/zoom, frame/node dragging, resize, multi-select, duplicate/delete, layers and component creation.
-- Responsive viewport preview for mobile/tablet/desktop constraints.
-- Component definitions and reusable instances.
-- Prototype navigation edges plus Play mode.
-- Deterministic anti-slop audit with safe auto-refinement.
-- Project JSON, semantic HTML, React TSX and OpenPencil bridge exports.
-- Browser-local reference library for screenshots/sketches/moodboards with palette/contrast analysis and editable local semantic drafts.
-- Optional hosted image interpretation through the OpenAI Responses API with strict Structured Outputs; image upload occurs only on explicit `AI interpret` action.
-- Local persistence via an abstract `ProjectRepository` interface.
-- Native OpenPencil MCP HTTP connector with verified server identity, capability discovery, and idempotent sync through official code-to-design tools (`set_design_md`, `upsert_variables`, `upsert_component`, `upsert_screen`).
+- Curated style foundations, style mixer and declarative custom foundation extensions.
+- First-class `DESIGN.md` generation/edit/import/export with portable intent separate from geometry.
+- Versioned schema-v5 design document with migrations, validation, deterministic serialization and recovery checkpoints.
+- Operation-backed undo/redo and batch edits.
+- Structured Studio canvas: pan/zoom, page culling, marquee, drag/resize, multi-select, align/distribute, design clipboard, layers and command search.
+- Auto-layout, fixed/hug/fill sizing, responsive constraints and mobile/tablet/desktop preview.
+- Components/instances/override metadata, variable collections/themes and interaction visual states.
+- Prototype navigation and Play mode with hover/pressed/disabled/loading/error/success presentation states.
+- Anti-Slop v2 + accessibility/cross-screen checks + safe refinement.
+- Screenshot/sketch/reference library, local visual analysis and no-key semantic draft generation.
+- Optional hosted vision using strict Structured Outputs, invoked only explicitly.
+- Bounded AI Edit proposal → preview → Apply/Reject and declarative reusable AI skills.
+- Review threads/status, local realtime collaboration and remote HTTP/SSE collaboration with reconnect snapshot recovery.
+- Signed scoped collaboration roles plus optional authenticated self-host cloud projects.
+- OpenPencil MCP capability discovery, official push tools, and loss-aware bidirectional pull preview.
+- Semantic React TSX, HTML and SVG export plus DTCG-compatible design-token export.
+- Stable design↔code IDs/mappings, repository metadata scanner, mapping repair and token drift hints.
+- Runtime manifest QA + local screenshot pixel diff + optional two-image AI critique and bounded fix proposal.
+- Portable `.adc.json` project bundles with SHA-256 fingerprints.
+- Stateless MCP/headless project tools for coding agents.
+- Declarative extension ecosystem for foundations and AI skills.
+- Security request guards/rate limits, accessibility focus/reduced-motion baseline, GitHub Actions CI and Vercel deployment.
+
+See `STATUS.md` for the freshest implementation checkpoint and remaining gaps.
 
 ## Architecture
 

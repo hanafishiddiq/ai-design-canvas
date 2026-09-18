@@ -135,24 +135,29 @@ The detailed definition of done is in `docs/PRODUCT_SPEC.md`.
 
 ## Current baseline
 
-The repository currently has a functioning web MVP with:
+The repository is now an **advanced alpha / strong foundation**, not the original thin MVP.
 
-- deterministic prompt → multi-screen generation;
-- foundation/style mixer;
-- portable `DESIGN.md` generation/edit/import/export;
-- typed structured design model;
-- interactive multi-screen canvas with pan/zoom/basic dragging;
-- property inspector;
-- prototype flows/play mode;
-- deterministic anti-slop audit + safe refinement;
-- local persistence;
-- JSON/HTML/OpenPencil-bridge exports;
-- OpenPencil local/HTTP adapter boundary;
-- Vercel deployment.
+Before changing architecture, read `STATUS.md` for the freshest implementation checkpoint.
 
-This is a **foundation, not the end state**.
+Current implemented surfaces include:
 
----
+- schema-v5 structured document + migrations;
+- operation-backed undo/redo, checkpoints and deterministic serialization;
+- multi-screen Studio with marquee, resize, align/distribute, design clipboard, auto-layout and responsive preview;
+- components/instances/overrides, variables/themes and interaction visual states;
+- screenshot/sketch references, local semantic drafts and optional structured hosted vision;
+- bounded AI Edit, declarative AI skills, Anti-Slop v2 and pixel/AI QA;
+- review threads, local/remote realtime collaboration and optional authenticated self-host cloud;
+- bidirectional loss-aware OpenPencil MCP push/pull;
+- semantic React/HTML/SVG code export + DTCG tokens;
+- repository metadata scanner, mapping repair and runtime/pixel QA;
+- stateless MCP/headless project tools;
+- portable `.adc.json` bundles and SHA-256 fingerprints;
+- declarative extension manifests;
+- command palette, accessibility baseline, security guards and viewport page culling;
+- GitHub Actions quality gate and Vercel web deployments.
+
+This is still **not the full north-star**. The highest-value remaining gaps are live OpenPencil fidelity tests, component variants, deeper vector/canvas tools, richer prototypes, authorized existing-app import/source reconciliation, automated browser/CI screenshot capture, Git merge workflows, broader providers/codegen and packaged desktop/very-large-project maturity.
 
 ## Engineering rules for future agents
 

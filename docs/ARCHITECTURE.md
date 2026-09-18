@@ -479,3 +479,20 @@ When adding a feature, ask:
 > Is this feature becoming part of the durable project model and agent interface, or is it only a UI trick?
 
 For core capabilities, prefer the former.
+
+---
+
+# Implemented runtime/service boundaries (current checkpoint)
+
+The following boundaries now exist in code:
+
+- **Web/Vercel:** Studio, references, review, AI proposals, repository manifests, pixel QA, extensions and export UX.
+- **Local document store:** schema migration, validation, checkpoints, BroadcastChannel sync and portable bundles.
+- **Collaboration relay:** self-host Node HTTP/SSE process with snapshot persistence and scoped signed roles.
+- **Optional cloud project service:** self-host Node process with users, scrypt credentials, expiring sessions, project roles and optimistic revisions.
+- **OpenPencil boundary:** MCP HTTP client with capability discovery, official push tools and loss-aware pull reconciliation.
+- **Agent/headless boundary:** stateless MCP-compatible HTTP tools; project state stays caller-supplied.
+- **Repository boundary:** static metadata manifest (routes/components/tokens/assets/hashes) rather than mandatory raw-source upload.
+- **Visual QA boundary:** DOM runtime manifests plus local pixel comparison; hosted image critique remains explicit/optional.
+
+These services are intentionally separate. Do not merge native/headless/cloud infrastructure into Vercel simply to make deployment topology look simpler.

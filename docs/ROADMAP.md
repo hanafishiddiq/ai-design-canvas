@@ -4,7 +4,24 @@ This roadmap is ordered by **dependency and product leverage**, not by calendar 
 
 The current web MVP proves the core concept. The next work should deepen the structured design system before adding large numbers of surface-level integrations.
 
-## Phase 0 — Working foundation
+### Current checkpoint — 2026-09-18
+
+The repository has advanced beyond the original Phase 0/1 assumptions:
+
+- Phase 1 structured design core: **strong MVP** (operation history, auto-layout, responsive constraints, components/variables, marquee, align/distribute, clipboard, command search, viewport culling).
+- Phase 2 OpenPencil integration: **strong bridge foundation** with bidirectional loss-aware pull/push; live upstream fidelity test remains.
+- Phase 3 multimodal ingestion: **MVP/strong MVP** for screenshot + sketch; existing rendered-app capture remains foundation work.
+- Phase 4 AI intelligence: **strong MVP** for bounded edit proposals, declarative skills, Anti-Slop v2 and pixel/AI QA.
+- Phase 5 review/collaboration: **usable MVP/strong foundation** with review threads, local/remote operation sync, reconnect snapshots, roles and optional self-host cloud.
+- Phase 6 agent/code integration: **MVP/strong foundation** with MCP/headless tools, semantic React/HTML, repository manifest discovery and mappings.
+- Phase 7 round-trip/visual QA: **strong MVP foundation** with runtime manifests, pixel diff and bounded fix proposals; automated browser capture/source reconciliation remain.
+- Phase 8 ecosystem/platform maturity: **started meaningfully** with portable bundles, DTCG/SVG, declarative extensions, CI, security guards and canvas culling.
+
+The roadmap remains valid as a north-star dependency graph; do not mark the entire phases Complete until their gates are truly met.
+
+---
+
+# Phase 0 — Working foundation
 
 **Status: substantially complete for MVP**
 
@@ -378,18 +395,19 @@ These are not postponed to a final cleanup phase:
 
 # Recommended immediate next tasks
 
-Unless a concrete user need overrides sequencing, the next substantial engineering work should prioritize:
+Unless a concrete user need overrides sequencing, current highest-leverage work is:
 
-1. **operation model + undo/redo + schema migrations**;
-2. **auto-layout/constraints**;
-3. **components/instances/variables/themes**;
-4. **canvas resize/multi-select/layers/snapping**;
-5. **stronger `DESIGN.md` ↔ variables sync**;
-6. **real OpenPencil/headless adapter proof of concept**;
-7. **screenshot → semantic design pipeline**;
-8. **agent/MCP operations on the structured document**.
+1. **live OpenPencil upstream round-trip/fidelity testing** with complex representative documents;
+2. **component variants/component sets + nested override/ref reconciliation**;
+3. **remaining professional-canvas depth**: reparenting UX, smart guides, lock/visibility, richer shapes/vector path editing;
+4. **authorized existing-app/browser capture** and source-aware selective code→design reconciliation;
+5. **automatic browser screenshot capture + CI visual-regression mode** on top of the existing runtime/pixel QA engines;
+6. **Git branch/merge/conflict workflows** for portable project artifacts;
+7. **large-project workers/indexing/render caches** and formal performance budgets;
+8. **broader provider/codegen targets and packaged desktop/local mode**;
+9. deploy the optional cloud/collaboration services after the user explicitly selects the intended backend workspace.
 
-Why this order: screenshot AI, multi-agent generation and code round-trip become far more valuable once the design document can represent reusable components, responsive layout and reversible edits.
+Why this order: the repository already has the broad feature surfaces. Remaining leverage now comes from fidelity, depth, conflict handling and real-world integration rather than adding more disconnected buttons.
 
 ---
 

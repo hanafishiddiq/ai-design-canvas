@@ -18,7 +18,7 @@ The status notes below describe the repository around the first working MVP and 
 
 # 1. Workspace and project lifecycle
 
-**Current: MVP**
+**Current: Strong local-first MVP + optional authenticated cloud service**
 
 The product must support projects as durable design/code contexts, not disposable chat generations.
 
@@ -86,7 +86,7 @@ Generation is driven by an inspectable product plan, the plan can be edited inde
 
 # 3. Design foundations and style direction
 
-**Current: MVP**
+**Current: Strong MVP + declarative extension foundations**
 
 This subsystem provides the DPAI/OpenStitch-like art-direction layer.
 
@@ -134,7 +134,7 @@ A foundation changes project-wide generation/editing consistently, can be repres
 
 # 4. `DESIGN.md` lifecycle
 
-**Current: MVP**
+**Current: Strong MVP**
 
 `DESIGN.md` is a first-class portable contract for humans and arbitrary coding agents.
 
@@ -168,7 +168,7 @@ A foundation changes project-wide generation/editing consistently, can be repres
 
 # 5. Structured design document
 
-**Current: Foundation/MVP**
+**Current: Strong structured-document foundation**
 
 The internal document should become rich enough to represent professional design intent.
 
@@ -217,7 +217,7 @@ The document can serve as a durable editable source for complex multi-page produ
 
 # 6. Professional infinite canvas
 
-**Current: MVP**
+**Current: Strong MVP**
 
 ## Required capabilities
 
@@ -267,7 +267,7 @@ A designer can meaningfully create and refine a product screen without needing A
 
 # 7. Auto-layout, constraints and responsive design
 
-**Current: Not started/Foundation in geometry only**
+**Current: Strong MVP**
 
 ## Required capabilities
 
@@ -295,7 +295,7 @@ A screen is not just a 1440px snapshot: it can produce coherent mobile/tablet/de
 
 # 8. Components, instances, variants and design variables
 
-**Current: Foundation target; tokens exist**
+**Current: MVP with components/instances/overrides/variables/themes; variants remain incomplete**
 
 ## Required capabilities
 
@@ -343,7 +343,7 @@ AI and humans can build reusable design systems instead of duplicating styles, a
 
 # 9. Asset and brand library
 
-**Current: Minimal**
+**Current: MVP reference/asset foundation**
 
 ## Required capabilities
 
@@ -372,7 +372,7 @@ A real brand/product asset set can be managed without external ad-hoc file handl
 
 # 10. Prompt → product / multi-screen generation
 
-**Current: MVP deterministic path**
+**Current: MVP deterministic + AI-assisted path**
 
 ## Required capabilities
 
@@ -401,7 +401,7 @@ Generated screens are coherent with the existing project, use reusable semantics
 
 # 11. Screenshot/reference → semantic design
 
-**Current: Not started**
+**Current: Strong MVP (local analyzer + optional hosted structured vision)**
 
 This should combine OpenStitch-like screenshot generation with a richer structured design target.
 
@@ -431,7 +431,7 @@ The result is an editable structured design with sensible layout/component seman
 
 # 12. Sketch/wireframe → structured design
 
-**Current: Not started**
+**Current: MVP (local + hosted semantic sketch path)**
 
 ## Required capabilities
 
@@ -452,7 +452,7 @@ A low-fidelity sketch can become a coherent, editable, design-system-aware scree
 
 # 13. Existing website/app → project import
 
-**Current: Not started**
+**Current: Foundation via repository manifest/reference import; rendered-app capture remains incomplete**
 
 ## Required capabilities
 
@@ -475,7 +475,7 @@ A user can bootstrap AI Design Canvas from a real existing product rather than r
 
 # 14. User flows and prototyping
 
-**Current: MVP**
+**Current: MVP with flows, Play mode and interaction visual states**
 
 ## Required capabilities
 
@@ -503,7 +503,7 @@ A meaningful product journey can be demonstrated and the interaction model can i
 
 # 15. AI editing and design skills
 
-**Current: Foundation via deterministic operations**
+**Current: Strong MVP with bounded AI proposals + declarative skills**
 
 ## Required capabilities
 
@@ -538,7 +538,7 @@ Agents can modify small or large design scopes without destroying unrelated work
 
 # 16. Anti-slop and design quality engine
 
-**Current: MVP deterministic rules**
+**Current: Strong MVP with deterministic audit + pixel/AI QA**
 
 This is a core differentiator and must become substantially stronger.
 
@@ -603,7 +603,7 @@ Quality review is repeatable and materially improves designs without relying on 
 
 # 17. Review, comments and collaboration
 
-**Current: Not started**
+**Current: Strong foundation / usable MVP with review threads, local/remote sync and cloud roles**
 
 ## Required capabilities
 
@@ -629,7 +629,7 @@ A small product team can use the workspace for actual design review without rely
 
 # 18. History, undo/redo and versioning
 
-**Current: Partial via persisted document, no complete history model**
+**Current: Strong MVP with reversible history + recovery checkpoints**
 
 ## Required capabilities
 
@@ -653,7 +653,7 @@ Users can safely explore, use AI and revert mistakes without fear that a generat
 
 # 19. Coding-agent integrations
 
-**Current: Foundation via portable files/adapters**
+**Current: Strong foundation / MVP via stateless MCP HTTP + repository agent instructions**
 
 ## Target agents
 
@@ -695,7 +695,7 @@ A fresh coding-agent session can understand the project and safely make design-a
 
 # 20. Design → production code
 
-**Current: basic HTML export only**
+**Current: MVP React/HTML/SVG + token export and stable mappings**
 
 ## Target outputs
 
@@ -734,7 +734,7 @@ Generated implementation is a maintainable starting point for production work an
 
 # 21. Production code → design/context round-trip
 
-**Current: Not started**
+**Current: Foundation via repository discovery, hashes and mapping repair**
 
 This is one of the hardest and most important long-term capabilities.
 
@@ -760,7 +760,7 @@ Design and code can evolve over time without permanent one-way divergence.
 
 # 22. Visual QA and design-vs-code verification
 
-**Current: Not started**
+**Current: Strong MVP with runtime manifests, local pixel diff and optional bounded AI fixes**
 
 ## Required capabilities
 
@@ -786,7 +786,7 @@ A coding agent or developer can ask "does production match the approved design?"
 
 # 23. Import/export and interoperability
 
-**Current: MVP JSON/HTML/`DESIGN.md`/bridge export**
+**Current: Strong MVP with .adc.json, JSON, DESIGN.md, React/HTML/SVG, DTCG and loss-aware OpenPencil interop**
 
 ## Required capabilities
 
@@ -811,7 +811,7 @@ Users retain ownership of their work and can move useful project/design data in 
 
 # 24. Plugin, skill and foundation ecosystem
 
-**Current: Not started**
+**Current: MVP declarative extension manifests for foundations and AI skills**
 
 ## Required capabilities
 
@@ -834,7 +834,7 @@ Core development does not need to directly implement every framework, design met
 
 # 25. AI providers and local models
 
-**Current: provider abstraction foundation**
+**Current: MVP with local deterministic paths + optional hosted OpenAI; broader provider matrix remains incomplete**
 
 ## Required capabilities
 
@@ -860,7 +860,7 @@ Switching providers does not change the project format, and core workflows degra
 
 # 26. Local, desktop, self-hosted and cloud modes
 
-**Current: Vercel web MVP**
+**Current: Strong foundation with Vercel web, self-host cloud/collab and headless/MCP; packaged desktop remains incomplete**
 
 ## Required modes
 
@@ -896,7 +896,7 @@ The same conceptual project can move between these modes without losing its desi
 
 # 27. Git and source-control integration
 
-**Current: Git-friendly repository itself; project Git integration not started**
+**Current: MVP foundation with deterministic artifacts, repository manifests, mappings and GitHub Actions CI**
 
 ## Required capabilities
 
@@ -917,7 +917,7 @@ Design-system and implementation changes can participate in normal engineering r
 
 # 28. Accessibility as a first-class capability
 
-**Current: limited audit heuristics**
+**Current: Strong MVP baseline with audit, contrast/targets, keyboard canvas, focus-visible and reduced-motion support**
 
 ## Required capabilities
 
@@ -939,7 +939,7 @@ Accessibility is considered during generation, editing, audit and code output ra
 
 # 29. Performance and large-project behavior
 
-**Current: small MVP scale**
+**Current: MVP/Strong foundation with viewport page culling and bounded storage/requests; deeper workers/indexing remain incomplete**
 
 ## Required capabilities
 
@@ -963,7 +963,7 @@ A realistic product with many pages/components/assets remains responsive and gen
 
 # 30. Search, command palette and productivity UX
 
-**Current: Not started**
+**Current: Strong MVP with command palette, screen/node/component search and keyboard shortcuts**
 
 ## Required capabilities
 
@@ -985,7 +985,7 @@ Experienced users can operate the system efficiently without navigating every fe
 
 # 31. Content/data-aware design
 
-**Current: generated demo content**
+**Current: MVP generated product data/content path**
 
 ## Required capabilities
 
@@ -1006,7 +1006,7 @@ Screens are evaluated against realistic product states rather than only idealize
 
 # 32. States and interaction system
 
-**Current: basic navigate action**
+**Current: MVP with navigate flows plus hover/pressed/disabled/loading/error/success visual states**
 
 ## Required capabilities
 
@@ -1028,7 +1028,7 @@ A design can express behavior beyond static screenshots and the implementation l
 
 # 33. Observability, reliability and schema safety
 
-**Current: basic tests/build pipeline**
+**Current: Strong foundation with schema migrations, validation/recovery, CI and API security guards**
 
 ## Required capabilities
 
