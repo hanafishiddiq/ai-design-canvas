@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from "react";
 import {
   Box, Boxes, Component, Copy, Download, FileJson, FileText, GitBranch, Group, Layers3,
@@ -66,7 +66,7 @@ function StyleSelect({ label, value, options, onChange }: { label: string; value
 export function StudioWorkspace() {
   const repository = useMemo(() => new LocalProjectRepository(), []);
   const provider = useMemo(() => new LocalDeterministicProvider(), []);
-  const historyRef = useRef<OperationHistory | null>(null);
+  const [history, setHistory] = useState<OperationHistory | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const contractFileRef = useRef<HTMLInputElement>(null);
   const dragRef = useRef<DragState | null>(null);
@@ -81,24 +81,27 @@ export function StudioWorkspace() {
   const [pan, setPan] = useState({ x: 50, y: 40 });
   const [playPageId, setPlayPageId] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
-  const [historyTick, setHistoryTick] = useState(0);
   const [generating, setGenerating] = useState(false);
 
-  const resetProject = useCallback((next: DesignProject) => {
-    historyRef.current = new OperationHistory(next, 150);
+  const resetProject = (next: DesignProject) => {
+    setHistory(new OperationHistory(next, 150));
     setProject(next);
     setSelectedIds([]);
-    setHistoryTick((value) => value + 1);
-  }, []);
+  };
 
   useEffect(() => {
+    let cancelled = false;
     repository.load().then(async (saved) => {
       const initial = saved || await provider.plan({ prompt: DEFAULT_PROMPT, name: "Signal Workspace", direction: defaultDirection });
-      resetProject(initial);
+      if (cancelled) return;
+      setHistory(new OperationHistory(initial, 150));
+      setProject(initial);
+      setSelectedIds([]);
       setPrompt(initial.prompt);
       setProjectName(initial.name);
     });
-  }, [provider, repository, resetProject]);
+    return () => { cancelled = true; };
+  }, [provider, repository]);
 
   useEffect(() => { if (project) void repository.save(project); }, [project, repository]);
   useEffect(() => {
@@ -107,50 +110,42 @@ export function StudioWorkspace() {
     return () => window.clearTimeout(timer);
   }, [notice]);
 
-  const commit = useCallback((operation: DesignOperation, label: string) => {
-    const history = historyRef.current;
+  const commit = (operation: DesignOperation, label: string) => {
     if (!history) return;
     setProject(history.execute(operation, label));
-    setHistoryTick((value) => value + 1);
-  }, []);
+  };
 
-  const replaceProject = useCallback((next: DesignProject, label: string) => commit({ type: "project.replace", project: next }, label), [commit]);
-  const undo = useCallback(() => {
-    const history = historyRef.current;
+  const replaceProject = (next: DesignProject, label: string) => commit({ type: "project.replace", project: next }, label);
+  const undo = () => {
     if (!history?.canUndo()) return;
     setProject(history.undo());
     setSelectedIds([]);
-    setHistoryTick((value) => value + 1);
-  }, []);
-  const redo = useCallback(() => {
-    const history = historyRef.current;
+  };
+  const redo = () => {
     if (!history?.canRedo()) return;
     setProject(history.redo());
     setSelectedIds([]);
-    setHistoryTick((value) => value + 1);
-  }, []);
+  };
 
   const activePage = project?.pages.find((page) => page.id === project.activePageId) || project?.pages[0];
   const selectedNodes = activePage?.nodes.filter((node) => selectedIds.includes(node.id)) || [];
   const selectedNode = selectedNodes.length === 1 ? selectedNodes[0] : null;
   const auditIssues = useMemo(() => project ? auditProject(project) : [], [project]);
-  void historyTick;
 
-  const selectPage = useCallback((pageId: string) => {
-    const history = historyRef.current;
+  const selectPage = (pageId: string) => {
     if (!history) return;
     const next = history.sync({ type: "project.update", changes: { activePageId: pageId } });
     setProject(next);
     setSelectedIds([]);
-  }, []);
+  };
 
-  const selectNode = useCallback((node: DesignNode, additive: boolean) => {
+  const selectNode = (node: DesignNode, additive: boolean) => {
     setSelectedIds((current) => {
       if (!additive) return [node.id];
       return current.includes(node.id) ? current.filter((id) => id !== node.id) : [...current, node.id];
     });
     setTab("inspect");
-  }, []);
+  };
 
   const updateNode = (nodeId: string, changes: Partial<Omit<DesignNode, "id">>, label = "Edit node") => {
     if (!activePage) return;
@@ -188,7 +183,7 @@ export function StudioWorkspace() {
     replaceProject(next, `Change ${String(key)}`);
   };
 
-  const fitView = useCallback(() => {
+  const fitView = () => {
     if (!project || !canvasRef.current || !project.pages.length) return;
     const rect = canvasRef.current.getBoundingClientRect();
     const minX = Math.min(...project.pages.map((page) => page.x));
@@ -200,7 +195,7 @@ export function StudioWorkspace() {
     const nextZoom = clamp(Math.min((rect.width - 100) / width, (rect.height - 100) / height), 0.2, 1.1);
     setZoom(nextZoom);
     setPan({ x: (rect.width - width * nextZoom) / 2 - minX * nextZoom, y: (rect.height - height * nextZoom) / 2 - minY * nextZoom });
-  }, [project]);
+  };
 
   const startNodeDrag = (event: ReactPointerEvent<HTMLDivElement>, node: DesignNode) => {
     if (!activePage) return;
@@ -283,7 +278,7 @@ export function StudioWorkspace() {
     setZoom((value) => clamp(value * (event.deltaY > 0 ? 0.9 : 1.1), 0.18, 1.6));
   };
 
-  const duplicateSelected = useCallback(() => {
+  const duplicateSelected = () => {
     if (!activePage || !selectedIds.length) return;
     const originals = activePage.nodes.filter((node) => selectedIds.includes(node.id));
     const idMap = new Map(originals.map((node) => [node.id, makeId("node")]));
@@ -298,13 +293,13 @@ export function StudioWorkspace() {
     }));
     commit({ type: "batch", operations: copies.map((node) => ({ type: "node.insert" as const, pageId: activePage.id, node })) }, "Duplicate selection");
     setSelectedIds(copies.map((node) => node.id));
-  }, [activePage, commit, selectedIds]);
+  };
 
-  const deleteSelected = useCallback(() => {
+  const deleteSelected = () => {
     if (!activePage || !selectedIds.length) return;
     commit({ type: "batch", operations: selectedIds.map((nodeId) => ({ type: "node.remove" as const, pageId: activePage.id, nodeId })) }, "Delete selection");
     setSelectedIds([]);
-  }, [activePage, commit, selectedIds]);
+  };
 
   const createAutoLayoutFrame = (mode: Exclude<LayoutMode, "absolute">) => {
     if (!activePage || selectedNodes.length < 2) { setNotice("Select at least two nodes"); return; }
@@ -417,7 +412,7 @@ export function StudioWorkspace() {
       const target = event.target as HTMLElement | null;
       const typing = target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.tagName === "SELECT" || target?.isContentEditable;
       const mod = event.metaKey || event.ctrlKey;
-      if (mod && event.key.toLowerCase() === "z") { event.preventDefault(); event.shiftKey ? redo() : undo(); return; }
+      if (mod && event.key.toLowerCase() === "z") { event.preventDefault(); if (event.shiftKey) redo(); else undo(); return; }
       if (mod && event.key.toLowerCase() === "y") { event.preventDefault(); redo(); return; }
       if (typing) return;
       if (mod && event.key.toLowerCase() === "d") { event.preventDefault(); duplicateSelected(); return; }
@@ -436,8 +431,8 @@ export function StudioWorkspace() {
 
   if (!project || !activePage) return <main className="grid h-screen place-items-center bg-[#090a0c] text-[#9299a6]"><div className="flex items-center gap-2"><Sparkles size={15} /> Initializing schema v2 studio…</div></main>;
 
-  const canUndo = historyRef.current?.canUndo() || false;
-  const canRedo = historyRef.current?.canRedo() || false;
+  const canUndo = history?.canUndo() || false;
+  const canRedo = history?.canRedo() || false;
 
   return (
     <main className="flex h-screen w-screen overflow-hidden bg-[#090a0c] text-[#eef0f4]">
