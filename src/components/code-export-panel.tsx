@@ -2,12 +2,12 @@
 
 import { useMemo, useRef, useState } from "react";
 import { Check, Code2, Copy, Download, FileJson, Package, RefreshCw, Upload, X } from "lucide-react";
-import { downloadText, exportPageHtml, exportPageReact, exportProjectJson } from "@/lib/export";
+import { downloadText, exportDtcgTokens, exportPageHtml, exportPageReact, exportPageSvg, exportProjectJson } from "@/lib/export";
 import { createProjectBundle, parseProjectBundle, serializeProjectBundle, verifyProjectBundle } from "@/lib/project-bundle";
 import { LocalProjectRepository } from "@/lib/storage";
 import type { DesignProject } from "@/lib/types";
 
-type Format = "react" | "html" | "json";
+type Format = "react" | "html" | "svg" | "dtcg" | "json";
 
 export function CodeExportPanel() {
   const repository = useMemo(() => new LocalProjectRepository(), []);
@@ -29,6 +29,8 @@ export function CodeExportPanel() {
     if (!project || !page) return "";
     if (format === "react") return exportPageReact(project, page);
     if (format === "html") return exportPageHtml(project, page);
+    if (format === "svg") return exportPageSvg(project, page);
+    if (format === "dtcg") return exportDtcgTokens(project);
     return exportProjectJson(project);
   }, [format, page, project]);
 
@@ -42,6 +44,8 @@ export function CodeExportPanel() {
     const base = page.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "screen";
     if (format === "react") downloadText(`${base}.tsx`, source, "text/typescript");
     else if (format === "html") downloadText(`${base}.html`, source, "text/html");
+    else if (format === "svg") downloadText(`${base}.svg`, source, "image/svg+xml");
+    else if (format === "dtcg") downloadText(`${project.name.toLowerCase().replace(/[^a-z0-9]+/g, "-") || "project"}.tokens.json`, source, "application/json");
     else downloadText(`${project.name.toLowerCase().replace(/[^a-z0-9]+/g, "-") || "project"}.canvas.json`, source, "application/json");
   };
   const exportBundle = async () => {
@@ -78,7 +82,7 @@ export function CodeExportPanel() {
       </div>
       {message && <div className="border-b border-[#292e36] bg-[#11151b] px-3 py-2 text-[9px] text-[#8993a0]">{message}</div>}
       <div className="flex h-11 shrink-0 items-center gap-1 border-b border-[#242830] px-3">
-        {(["react", "html", "json"] as Format[]).map((item) => <button key={item} className={`tool-button ${format === item ? "!border-[#5965a0] !bg-[#202637]" : ""}`} onClick={() => setFormat(item)}>{item === "json" ? <FileJson size={11} /> : <Code2 size={11} />}{item === "react" ? "React TSX" : item.toUpperCase()}</button>)}
+        {(["react", "html", "svg", "dtcg", "json"] as Format[]).map((item) => <button key={item} className={`tool-button ${format === item ? "!border-[#5965a0] !bg-[#202637]" : ""}`} onClick={() => setFormat(item)}>{item === "json" || item === "dtcg" ? <FileJson size={11} /> : <Code2 size={11} />}{item === "react" ? "React TSX" : item.toUpperCase()}</button>)}
         <div className="flex-1" />
         <span className="mr-2 text-[9px] text-[#626b78]">{page?.name || "No active screen"}</span>
         <button className="tool-button" disabled={!source} onClick={copy}>{copied ? <Check size={11} /> : <Copy size={11} />}{copied ? "Copied" : "Copy"}</button>
