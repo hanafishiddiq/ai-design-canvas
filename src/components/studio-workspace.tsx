@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { auditProject, refineProject } from "@/lib/anti-slop";
 import { applyCollaborationEnvelope, CollaborationEventTracker, type CollaboratorPresence } from "@/lib/collaboration";
+import { visibleCanvasPages } from "@/lib/canvas-virtualization";
 import { createCollaborationTransport, loadCollaborationSettings, subscribeCollaborationSettings } from "@/lib/collaboration-settings";
 import { createComponentDefinition, instantiateComponent } from "@/lib/components";
 import { mergeTokens, parseDesignMd, serializeDesignMd } from "@/lib/design-md";
@@ -81,6 +82,7 @@ export function StudioWorkspace() {
   const [tab, setTab] = useState<InspectorTab>("layers");
   const [zoom, setZoom] = useState(0.58);
   const [pan, setPan] = useState({ x: 50, y: 40 });
+  const [canvasViewport, setCanvasViewport] = useState({ width: 1200, height: 800 });
   const [playPageId, setPlayPageId] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
   const [generating, setGenerating] = useState(false);
@@ -117,6 +119,16 @@ export function StudioWorkspace() {
   }, [provider, repository]);
 
   useEffect(() => { if (project) void repository.save(project); }, [project, repository]);
+  useEffect(() => {
+    const element = canvasRef.current;
+    if (!element || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver((entries) => {
+      const rect = entries[0]?.contentRect;
+      if (rect) setCanvasViewport({ width: Math.max(1, rect.width), height: Math.max(1, rect.height) });
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
   useEffect(() => subscribeCollaborationSettings((next) => setCollaborationSettings(next)), []);
 
   useEffect(() => {
@@ -207,6 +219,11 @@ export function StudioWorkspace() {
   const selectedNodes = activePage?.nodes.filter((node) => selectedIds.includes(node.id)) || [];
   const selectedNode = selectedNodes.length === 1 ? selectedNodes[0] : null;
   const auditIssues = useMemo(() => project ? auditProject(project) : [], [project]);
+  const visiblePages = useMemo(
+    () => project ? visibleCanvasPages(project.pages, pan, zoom, canvasViewport, activePage?.id) : [],
+    [activePage?.id, canvasViewport, pan, project, zoom],
+  );
+  const visiblePageIds = useMemo(() => new Set(visiblePages.map((page) => page.id)), [visiblePages]);
 
   const selectPage = (pageId: string) => {
     if (!history) return;
@@ -560,8 +577,8 @@ export function StudioWorkspace() {
         <div className="relative min-h-0 flex-1">
           <div ref={canvasRef} className="canvas-grid absolute inset-0 overflow-hidden touch-none" onPointerDown={canvasPointerDown} onPointerMove={canvasPointerMove} onPointerUp={canvasPointerUp} onWheel={canvasWheel}>
             <div className="absolute left-0 top-0 h-[2200px] w-[3200px]" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: "0 0" }}>
-              <svg className="pointer-events-none absolute left-0 top-0 h-[2200px] w-[3200px] overflow-visible">{project.flows.map((flow) => { const from = project.pages.find((page) => page.id === flow.fromPageId); const to = project.pages.find((page) => page.id === flow.toPageId); if (!from || !to) return null; const x1 = from.x + from.width; const y1 = from.y + from.height / 2; const x2 = to.x; const y2 = to.y + to.height / 2; const cx = (x1 + x2) / 2; return <path key={flow.id} d={`M ${x1} ${y1} C ${cx} ${y1}, ${cx} ${y2}, ${x2} ${y2}`} fill="none" stroke="#59647a" strokeWidth="2" strokeDasharray="6 6" />; })}</svg>
-              {project.pages.map((page) => <div key={page.id} className="absolute" style={{ left: page.x, top: page.y, width: page.width, height: page.height }}>
+              <svg className="pointer-events-none absolute left-0 top-0 h-[2200px] w-[3200px] overflow-visible">{project.flows.filter((flow) => visiblePageIds.has(flow.fromPageId) || visiblePageIds.has(flow.toPageId)).map((flow) => { const from = project.pages.find((page) => page.id === flow.fromPageId); const to = project.pages.find((page) => page.id === flow.toPageId); if (!from || !to) return null; const x1 = from.x + from.width; const y1 = from.y + from.height / 2; const x2 = to.x; const y2 = to.y + to.height / 2; const cx = (x1 + x2) / 2; return <path key={flow.id} d={`M ${x1} ${y1} C ${cx} ${y1}, ${cx} ${y2}, ${x2} ${y2}`} fill="none" stroke="#59647a" strokeWidth="2" strokeDasharray="6 6" />; })}</svg>
+              {visiblePages.map((page) => <div key={page.id} className="absolute" style={{ left: page.x, top: page.y, width: page.width, height: page.height }}>
                 <div className={`absolute -top-7 left-0 flex h-6 items-center gap-2 rounded px-1.5 text-[11px] ${page.id === activePage.id ? "bg-[#252b37] text-white" : "text-[#8c94a0]"}`} onPointerDown={(event) => startPageDrag(event, page)} onPointerMove={moveDrag} onPointerUp={endDrag}><span className="size-1.5 rounded-full" style={{ background: page.id === activePage.id ? project.tokens.colors.accent : "#515866" }} />{page.name}<span className="text-[9px] text-[#646c78]">{page.route}</span></div>
                 <div className={`relative overflow-visible shadow-[0_20px_80px_rgba(0,0,0,.34)] ${page.id === activePage.id ? "ring-2 ring-[#6774b8]" : "ring-1 ring-[#323844]"}`} style={{ width: page.width, height: page.height, background: page.background, fontFamily: project.tokens.typography.fontFamily }} onPointerDown={() => selectPage(page.id)}>
                   <StudioNodeLayer allNodes={page.nodes} selectedIds={page.id === activePage.id ? selectedIds : []} onSelect={selectNode} onDragStart={startNodeDrag} onResizeStart={startResize} />
@@ -569,7 +586,7 @@ export function StudioWorkspace() {
               </div>)}
             </div>
           </div>
-          <div className="pointer-events-none absolute bottom-3 left-3 rounded-md border border-[#252b34] bg-[#0d1015]/90 px-2.5 py-1.5 text-[10px] text-[#727a87] shadow-lg backdrop-blur">Shift-click multi-select · drag to move · resize selected node · ⌘/Ctrl-Z undo · ⌘/Ctrl-D duplicate</div>
+          <div className="pointer-events-none absolute bottom-3 left-3 flex items-center gap-3 rounded-md border border-[#252b34] bg-[#0d1015]/90 px-2.5 py-1.5 text-[10px] text-[#727a87] shadow-lg backdrop-blur"><span>Shift-click multi-select · drag to move · ⌘/Ctrl-Z undo</span><span className="text-[#59616d]">render {visiblePages.length}/{project.pages.length} screens</span><span className={collaborationError ? "text-[#e28a94]" : peers.length ? "text-[#70cf99]" : "text-[#59616d]"}>{collaborationError ? "collaboration issue" : `${peers.length} peer${peers.length === 1 ? "" : "s"}`}</span></div>
         </div>
       </section>
 
